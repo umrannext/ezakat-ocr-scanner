@@ -1,0 +1,261 @@
+"use client";
+import React, { useState } from 'react';
+import { FileText, Search, SlidersHorizontal, Edit2, Trash2, AlertCircle, Loader2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+export default function HistoryClient({ initialReceipts, userRole }: { initialReceipts: any[], userRole: string }) {
+  const router = useRouter();
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('date_desc');
+  
+  const [receipts, setReceipts] = useState(initialReceipts);
+  
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [editData, setEditData] = useState<any | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  let filtered = receipts.filter(r => 
+    r.payerName.toLowerCase().includes(search.toLowerCase()) || 
+    r.receiptNumber.toLowerCase().includes(search.toLowerCase())
+  );
+
+  filtered = filtered.sort((a, b) => {
+    if (sortBy === 'date_desc') return new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime();
+    if (sortBy === 'date_asc') return new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime();
+    if (sortBy === 'amount_desc') return b.totalAmount - a.totalAmount;
+    if (sortBy === 'amount_asc') return a.totalAmount - b.totalAmount;
+    return 0;
+  });
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/receipts/${deleteId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setReceipts(prev => prev.filter(r => r.id !== deleteId));
+        setDeleteId(null);
+        router.refresh(); // Update server counts if any
+      } else {
+        alert("Gagal memadam rekod.");
+      }
+    } catch(err) {
+      alert("Ralat sistem.");
+    }
+    setIsDeleting(false);
+  };
+
+  const handleEditSave = async () => {
+    if (!editData) return;
+    setIsSaving(true);
+    
+    // Auto-calculate new total based on modified dependents
+    const newTotal = (1 + editData.dependents) * editData.riceType.price;
+    
+    try {
+      const res = await fetch(`/api/receipts/${editData.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payerName: editData.payerName,
+          receiptNumber: editData.receiptNumber,
+          dependents: editData.dependents,
+          totalAmount: newTotal
+        })
+      });
+      
+      if (res.ok) {
+        const { data } = await res.json();
+        setReceipts(prev => prev.map(r => r.id === data.id ? { ...r, ...data } : r));
+        setEditData(null);
+        router.refresh();
+      } else {
+        alert("Gagal mengemaskini.");
+      }
+    } catch (err) {
+      alert("Ralat sistem.");
+    }
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="p-5">
+      <div className="flex gap-2 mb-6">
+        <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3 flex-1 transition-all focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100">
+          <Search className="text-slate-400 shrink-0" size={20} />
+          <input 
+            type="text" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari No. Resit / Nama..." 
+            className="w-full bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder:text-slate-400 placeholder:font-medium"
+          />
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center px-3 relative min-w-[50px]">
+          <SlidersHorizontal className="text-teal-600 absolute left-3 pointer-events-none" size={20} />
+          <select 
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="w-full h-full opacity-0 absolute inset-0 cursor-pointer"
+          >
+            <option value="date_desc">Tarikh (Terbaru)</option>
+            <option value="date_asc">Tarikh (Lama)</option>
+            <option value="amount_desc">Jumlah (Tertinggi)</option>
+            <option value="amount_asc">Jumlah (Terendah)</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mb-4 px-1">
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          {filtered.length} Rekod Dijumpai
+        </p>
+        <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-bold">
+          {sortBy.includes('date') ? 'Susunan Tarikh' : 'Susunan Jumlah'}
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-100/50 flex flex-col items-center justify-center mt-4">
+            <div className="bg-slate-50 p-4 rounded-full mb-4">
+              <FileText className="text-slate-300" size={40} />
+            </div>
+            <p className="text-slate-600 text-sm font-bold">Tiada rekod ditemui.</p>
+            <p className="text-slate-400 text-xs mt-2 font-medium">Cuba gunakan kata kunci carian lain.</p>
+          </div>
+        ) : (
+          filtered.map((receipt) => (
+            <div key={receipt.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/50 relative group transition-shadow hover:shadow-md">
+              <div className="flex justify-between items-start">
+                <div className="flex gap-4 items-center overflow-hidden">
+                  <div className="bg-slate-50 p-3 rounded-xl shrink-0 group-hover:bg-teal-50 transition-colors">
+                    <FileText size={20} className="text-slate-400 group-hover:text-teal-500 transition-colors" />
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="font-bold text-slate-800 text-sm truncate pr-2">{receipt.payerName}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium tracking-wide flex items-center gap-1.5 flex-wrap">
+                      <span className="text-slate-600 font-bold whitespace-nowrap">{receipt.receiptNumber}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="whitespace-nowrap"><span className="text-teal-600 font-bold">{receipt.dependents === 0 ? 'Tiada' : receipt.dependents}</span> Tgn</span>
+                    </p>
+                    {userRole === 'ADMIN' && receipt.amil && (
+                      <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest bg-slate-50 inline-block px-1.5 py-0.5 rounded border border-slate-100">
+                        {receipt.amil.loginId}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right flex flex-col items-end shrink-0 ml-2">
+                  <span className="inline-block bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
+                    {receipt.riceType.name}
+                  </span>
+                  <p className="text-[10px] text-slate-400 mt-2 font-medium tracking-wide">
+                    {new Date(receipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                  <p className="text-xs font-black text-teal-600 mt-1">${receipt.totalAmount.toFixed(2)}</p>
+                </div>
+              </div>
+              
+              {userRole === 'ADMIN' && (
+                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end gap-2">
+                  <button 
+                    onClick={() => setEditData(receipt)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 active:scale-95 transition-all"
+                  >
+                    <Edit2 size={14} /> Edit
+                  </button>
+                  <button 
+                    onClick={() => setDeleteId(receipt.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 active:scale-95 transition-all"
+                  >
+                    <Trash2 size={14} /> Padam
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Delete Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={32} />
+            </div>
+            <h3 className="text-xl font-black text-center text-slate-800">Padam Rekod?</h3>
+            <p className="text-sm text-center text-slate-500 mt-2 font-medium mb-6">Tindakan ini tidak boleh diundur. Adakah anda pasti?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteId(null)} className="w-1/2 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active:scale-95">
+                Batal
+              </button>
+              <button onClick={handleDelete} disabled={isDeleting} className="w-1/2 bg-red-600 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 active:scale-95">
+                {isDeleting ? <Loader2 className="animate-spin" size={18}/> : 'Ya, Padam'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editData && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-black text-slate-800">Kemaskini Rekod</h3>
+              <button onClick={() => setEditData(null)} className="text-slate-400 p-1 bg-slate-50 rounded-full hover:bg-slate-100"><X size={20}/></button>
+            </div>
+            
+            <div className="space-y-4 overflow-y-auto pb-4 pr-1">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">No. Resit</label>
+                <input 
+                  type="text" 
+                  value={editData.receiptNumber}
+                  onChange={e => setEditData({...editData, receiptNumber: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-teal-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Nama Pembayar</label>
+                <input 
+                  type="text" 
+                  value={editData.payerName}
+                  onChange={e => setEditData({...editData, payerName: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-teal-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Bil. Tanggungan</label>
+                <select 
+                  value={editData.dependents}
+                  onChange={e => setEditData({...editData, dependents: parseInt(e.target.value)})}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-teal-500"
+                >
+                  {[...Array(21)].map((_, i) => (
+                    <option key={i} value={i}>{i === 0 ? "Tiada Tanggungan" : `${i} Orang`}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-teal-600 font-medium ml-1 mt-1">*Jumlah keseluruhan akan dikira semula secara automatik.</p>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-100 flex gap-3">
+              <button onClick={() => setEditData(null)} className="w-1/3 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active:scale-95">
+                Batal
+              </button>
+              <button onClick={handleEditSave} disabled={isSaving} className="w-2/3 bg-teal-600 text-white font-bold py-3.5 rounded-xl shadow-lg flex justify-center items-center gap-2 active:scale-95">
+                {isSaving ? <Loader2 className="animate-spin" size={18}/> : 'Simpan Kemaskini'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
