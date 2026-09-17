@@ -76,7 +76,13 @@ export default function ReviewPage() {
       
       const text = result.data.text;
 
-      let extReceipt = text.match(/\b\d{5,10}\b/);
+      let extReceiptRaw = text.match(/\b(EW|CS)?\s*(\d{5,10})\b/i);
+      let extReceipt = null;
+      let detectedPrefix = '';
+      if (extReceiptRaw) {
+         detectedPrefix = (extReceiptRaw[1] || '').toUpperCase();
+         extReceipt = (detectedPrefix ? detectedPrefix + ' ' : '') + extReceiptRaw[2];
+      }
       
       // Auto detect year (Hijri or Gregorian)
       let extYear = formData.zakatYear;
@@ -90,10 +96,10 @@ export default function ReviewPage() {
       let extRiceId = yearRices.length > 0 ? yearRices[0].id : formData.riceTypeId;
       
       if (yearRices.length > 0) {
-        if (text.toLowerCase().includes('wangi')) {
+        if (detectedPrefix === 'EW' || text.toLowerCase().includes('wangi')) {
           const wangi = yearRices.find(r => r.name.toLowerCase().includes('wangi'));
           if (wangi) extRiceId = wangi.id;
-        } else {
+        } else if (detectedPrefix === 'CS' || text.toLowerCase().includes('siam')) {
           const siam = yearRices.find(r => r.name.toLowerCase().includes('siam'));
           if (siam) extRiceId = siam.id;
         }
