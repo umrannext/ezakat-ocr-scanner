@@ -48,6 +48,13 @@ model RiceType {
   @@unique([name, activeYear])
 }
 
+model SystemSetting {
+  id    String @id @default(uuid())
+  key   String @unique // e.g., "GOLD_PRICE_PER_GRAM"
+  value String
+  updatedAt DateTime @updatedAt
+}
+
 model Receipt {
   id            String   @id @default(cuid())
   receiptNumber String   @unique
@@ -58,12 +65,13 @@ model Receipt {
   dependents    Int      @default(0)
   paymentDate   DateTime @default(now())
   totalAmount   Float    @default(0)
+  zakatType     String   @default("FITRAH") // "FITRAH" or "HARTA"
   
   amilId        String
   amil          User     @relation(fields: [amilId], references: [id])
   
-  riceTypeId    String
-  riceType      RiceType @relation(fields: [riceTypeId], references: [id])
+  riceTypeId    String?
+  riceType      RiceType? @relation(fields: [riceTypeId], references: [id])
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

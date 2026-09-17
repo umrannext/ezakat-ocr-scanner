@@ -15,7 +15,8 @@ export async function POST(req: Request) {
       data: {
         receiptNumber: data.receiptNumber,
         payerName: data.payerName,
-        riceTypeId: data.riceTypeId,
+        zakatType: data.zakatType || 'FITRAH',
+        riceTypeId: data.zakatType === 'HARTA' ? null : data.riceTypeId,
         amilId: amilId,
         payerIcNumber: data.icNumber || null,
         isVerified: data.isVerified || false,

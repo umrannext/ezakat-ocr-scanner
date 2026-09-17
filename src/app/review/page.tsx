@@ -20,6 +20,8 @@ export default function ReviewPage() {
     riceTypeId: '',
     icNumber: '',
     isVerified: false,
+    zakatType: 'FITRAH',
+    manualTotal: '0',
     dependents: 0, 
     paymentDate: new Date().toISOString().split('T')[0],
     zakatYear: '1447H' // default current year
@@ -50,7 +52,7 @@ export default function ReviewPage() {
 
   const selectedRice = filteredRiceTypes.find(r => r.id === formData.riceTypeId);
   const currentPrice = selectedRice ? selectedRice.price : 0;
-  const totalAmount = ((1 + formData.dependents) * currentPrice).toFixed(2);
+  const totalAmount = formData.zakatType === 'HARTA' ? formData.manualTotal : ((1 + formData.dependents) * currentPrice).toFixed(2);
 
   useEffect(() => {
     const savedImage = sessionStorage.getItem('scannedImage');
@@ -78,9 +80,11 @@ export default function ReviewPage() {
 
       let extReceiptRaw = text.match(/\b(EW|CS)?\s*(\d{5,10})\b/i);
       let extReceipt = null;
+      let extZakatType = 'FITRAH';
       let detectedPrefix = '';
       if (extReceiptRaw) {
          detectedPrefix = (extReceiptRaw[1] || '').toUpperCase();
+         if (!detectedPrefix) { extZakatType = 'HARTA'; }
          extReceipt = (detectedPrefix ? detectedPrefix + ' ' : '') + extReceiptRaw[2];
       }
       
@@ -132,6 +136,7 @@ export default function ReviewPage() {
         ...prev,
         receiptNumber: extReceipt ? extReceipt[0] : 'RZT-' + Math.floor(1000 + Math.random() * 9000),
         payerName: 'SILA KEMASKINI (OCR TULISAN TANGAN)',
+        zakatType: extZakatType,
         zakatYear: extYear,
         riceTypeId: extRiceId,
         dependents: extDependents,
@@ -185,6 +190,7 @@ export default function ReviewPage() {
         body: JSON.stringify({
           ...formData,
           totalAmount: parseFloat(totalAmount),
+        zakatType: formData.zakatType,
           imageUrl: image
         })
       });
@@ -245,6 +251,25 @@ export default function ReviewPage() {
         </div>
 
         <div className="space-y-4">
+
+          {/* ZAKAT TYPE TOGGLE */}
+          <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+            <button 
+              type="button"
+              onClick={() => setFormData({...formData, zakatType: 'FITRAH'})}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${formData.zakatType === 'FITRAH' ? 'bg-white shadow text-emerald-700' : 'text-slate-500'}`}
+            >
+              Zakat Fitrah
+            </button>
+            <button 
+              type="button"
+              onClick={() => setFormData({...formData, zakatType: 'HARTA'})}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${formData.zakatType === 'HARTA' ? 'bg-white shadow text-amber-600' : 'text-slate-500'}`}
+            >
+              Zakat Harta
+            </button>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tarikh Pembayaran</label>
             <input 
@@ -348,6 +373,7 @@ export default function ReviewPage() {
                 ))}
               </select>
             </div>
+          )}
           </div>
 
           <div className="mt-2 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl p-4 border border-teal-100 flex justify-between items-center shadow-sm">
