@@ -134,7 +134,7 @@ export default function ReviewPage() {
 
       setFormData(prev => ({
         ...prev,
-        receiptNumber: extReceipt ? extReceipt[0] : 'RZT-' + Math.floor(1000 + Math.random() * 9000),
+        receiptNumber: extReceipt ? extReceipt : 'RZT-' + Math.floor(1000 + Math.random() * 9000),
         payerName: 'SILA KEMASKINI (OCR TULISAN TANGAN)',
         zakatType: extZakatType,
         zakatYear: extYear,
