@@ -257,15 +257,17 @@ export default function ReviewPage() {
         })
       });
       
-      if (res.ok) {
+      const data = await res.json();
+
+      if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
         router.push('/');
         router.refresh();
       } else {
-        alert("Gagal menyimpan rekod data.");
+        alert(data.error || "Gagal menyimpan rekod data. Sila semak maklumat resit.");
       }
-    } catch (error) {
-      alert("Ralat sistem semasa memproses penyimpanan.");
+    } catch (error: any) {
+      alert("Ralat sistem semasa memproses penyimpanan: " + (error?.message || "Sila cuba lagi"));
     }
     setIsSaving(false);
   };
