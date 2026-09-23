@@ -6,10 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 
 [observability]
 enabled = true
-
-[[hyperdrive]]
-binding = "HYPERDRIVE"
-id = "38fc8e5584b94006a34b07549d2287b9"

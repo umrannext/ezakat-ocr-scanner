@@ -4,24 +4,11 @@ import { Pool } from 'pg';
 
 let client: PrismaClient | null = null;
 
-function getConnectionString(): string {
-  try {
-    const { getCloudflareContext } = require('@opennextjs/cloudflare');
-    const ctx = getCloudflareContext();
-    if (ctx?.env?.HYPERDRIVE?.connectionString) {
-      return ctx.env.HYPERDRIVE.connectionString;
-    }
-  } catch (e) {
-    // Outside of Cloudflare or during static build
-  }
-  return process.env.DATABASE_URL || process.env.DIRECT_URL || '';
-}
-
 function getClient(): PrismaClient {
   if (!client) {
-    const connectionString = getConnectionString();
+    const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
     if (!connectionString) {
-      throw new Error(`Database connection string is missing in environment!`);
+      throw new Error(`DATABASE_URL is missing in environment! Available keys: ${Object.keys(process.env).join(', ')}`);
     }
     const pool = new Pool({ connectionString });
     const adapter = new PrismaPg(pool);
