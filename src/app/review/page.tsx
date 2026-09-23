@@ -253,7 +253,7 @@ export default function ReviewPage() {
           ...formData,
           totalAmount: parseFloat(totalAmount),
           zakatType: formData.zakatType,
-          imageUrl: image
+          imageUrl: null // Elakkan penghantaran data Base64 berat yang menamatkan sambungan TCP
         })
       });
       

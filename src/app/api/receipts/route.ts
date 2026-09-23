@@ -47,6 +47,8 @@ export async function POST(req: Request) {
     const dependents = data.dependents !== undefined ? parseInt(data.dependents, 10) : 0;
     const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
 
+    const safeImageUrl = (data.imageUrl && typeof data.imageUrl === 'string' && !data.imageUrl.startsWith('data:') && data.imageUrl.length < 500) ? data.imageUrl : null;
+
     // 5. Gunakan upsert: Jika no. resit telah wujud, kemaskini rekod tersebut (elak ralat P2002 Unique Constraint)
     const receipt = await prisma.receipt.upsert({
       where: { receiptNumber: receiptNumber },
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
         amilId: user.id,
         payerIcNumber: data.icNumber || null,
         isVerified: Boolean(data.isVerified),
-        imageUrl: data.imageUrl || null,
+        imageUrl: safeImageUrl,
         dependents: isNaN(dependents) ? 0 : dependents,
         paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
         totalAmount: isNaN(totalAmount) ? 0 : totalAmount
@@ -70,7 +72,7 @@ export async function POST(req: Request) {
         amilId: user.id,
         payerIcNumber: data.icNumber || null,
         isVerified: Boolean(data.isVerified),
-        imageUrl: data.imageUrl || null,
+        imageUrl: safeImageUrl,
         dependents: isNaN(dependents) ? 0 : dependents,
         paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
         totalAmount: isNaN(totalAmount) ? 0 : totalAmount
