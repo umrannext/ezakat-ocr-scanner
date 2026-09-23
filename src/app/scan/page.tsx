@@ -1,142 +1,461 @@
 "use client";
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { useRouter } from 'next/navigation';
-import { Camera, X, Loader2, AlertCircle } from 'lucide-react';
+import { 
+  Camera, X, Loader2, ArrowLeft, Image as ImageIcon, 
+  RotateCw, ZoomIn, ZoomOut, RefreshCw, Check, Sparkles 
+} from 'lucide-react';
 import imageCompression from 'browser-image-compression';
-import Tesseract from 'tesseract.js';
 
 export default function ScanPage() {
   const webcamRef = useRef<Webcam>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [scanError, setScanError] = useState('');
 
-  const capture = useCallback(async () => {
+  // State Kamera & Pemprosesan
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // State Penyelarasan Imej (Crop, Zoom, Pan & Rotate)
+  const [adjustImage, setAdjustImage] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [rotation, setRotation] = useState<number>(0);
+  const [imgSize, setImgSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Tangkap Imej dari Kamera Langsung
+  const capture = useCallback(() => {
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
       if (imageSrc) {
-        setIsProcessing(true);
-        try {
-          // Convert base64 to File object for compression
-          const res = await fetch(imageSrc);
-          const blob = await res.blob();
-          const file = new File([blob], "receipt.jpg", { type: "image/jpeg" });
-          
-          // Compress image - mengecilkan saiz tapi mengekalkan kualiti untuk OCR
-          const options = {
-            maxSizeMB: 0.1, // max 100KB
-            maxWidthOrHeight: 800,
-            useWebWorker: true,
-          };
-          const compressedFile = await imageCompression(file, options);
-          
-          // Convert back to base64 for passing to review page
-          const reader = new FileReader();
-          reader.readAsDataURL(compressedFile);
-          reader.onloadend = async () => {
-            const base64data = reader.result as string;
-            
-            // Saringan Pantas (Quick OCR Validation)
-            try {
-              const result = await Tesseract.recognize(base64data, 'eng');
-              const text = result.data.text;
-              
-              // Syarat: Mesti ada sekurang-kurangnya 10 aksara dan mengandungi nombor
-              const hasNumbers = /\d/.test(text);
-              if (text.trim().length < 10 || !hasNumbers) {
-                setScanError("Gambar tidak jelas, terkeluar dari petak border, atau bukan resit. Sila imbas semula.");
-                setIsProcessing(false);
-                return;
-              }
-            } catch (err) {
-              console.error("Ralat Saringan Tesseract:", err);
-            }
-
-            // Jika melepasi saringan
-            setScanError('');
-            sessionStorage.setItem('scannedImage', base64data);
-            router.push('/review');
-          };
-        } catch (error) {
-          console.error("Error compressing image:", error);
-          setIsProcessing(false);
-        }
+        setAdjustImage(imageSrc);
       }
     }
-  }, [webcamRef, router]);
+  }, [webcamRef]);
+
+  // Tukar Kamera Depan / Belakang
+  const toggleCamera = () => {
+    setFacingMode(prev => (prev === 'environment' ? 'user' : 'environment'));
+  };
+
+  // Pilih Imej dari Galeri Telefon
+  const handleGalleryPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setAdjustImage(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    // Reset nilai input supaya fail sama boleh dipilih semula jika perlu
+    e.target.value = '';
+  };
+
+  // Kira saiz awal imej agar muat dalam petak apabila imej dipilih
+  useEffect(() => {
+    if (!adjustImage) return;
+
+    const img = new Image();
+    img.src = adjustImage;
+    img.onload = () => {
+      const frame = containerRef.current;
+      const fw = frame ? frame.clientWidth : 320;
+      const fh = frame ? frame.clientHeight : 420;
+
+      const scale = Math.min(fw / img.naturalWidth, fh / img.naturalHeight);
+      setImgSize({
+        width: img.naturalWidth * scale,
+        height: img.naturalHeight * scale
+      });
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      setRotation(0);
+    };
+  }, [adjustImage]);
+
+  // Pengendali Sentuh / Tetikus untuk Gerakkan (Pan) Imej
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    panStartRef.current = { ...pan };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    setPan({
+      x: panStartRef.current.x + dx,
+      y: panStartRef.current.y + dy,
+    });
+  };
+
+  const handlePointerUp = () => {
+    setIsDragging(false);
+  };
+
+  // Putar 90 darjah ikut jam
+  const rotateImage = () => {
+    setRotation(prev => (prev + 90) % 360);
+  };
+
+  // Reset kedudukan & zum
+  const resetAdjust = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setRotation(0);
+  };
+
+  // Potong & Ekstrak paparan yang telah diselaraskan ke Canvas resolusi tinggi
+  const processAndProceed = async () => {
+    if (!adjustImage) return;
+    setIsProcessing(true);
+
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = adjustImage;
+      await new Promise((resolve, reject) => {
+        if (img.complete) resolve(true);
+        else {
+          img.onload = () => resolve(true);
+          img.onerror = reject;
+        }
+      });
+
+      const frame = containerRef.current;
+      const frameW = frame ? frame.clientWidth : 320;
+      const frameH = frame ? frame.clientHeight : 420;
+
+      // Resolusi eksport kanvas tajam untuk memaksimumkan ketepatan OCR
+      const exportW = 1000;
+      const exportH = Math.round(exportW * (frameH / frameW));
+      const scaleRatio = exportW / frameW;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = exportW;
+      canvas.height = exportH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error("Gagal mulakan kanvas");
+
+      // Latar belakang putih bersih
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, exportW, exportH);
+
+      const drawW = imgSize.width * scaleRatio;
+      const drawH = imgSize.height * scaleRatio;
+
+      ctx.save();
+      ctx.translate(exportW / 2, exportH / 2);
+      ctx.translate(pan.x * scaleRatio, pan.y * scaleRatio);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.scale(zoom, zoom);
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.restore();
+
+      const croppedBase64 = canvas.toDataURL('image/jpeg', 0.92);
+
+      // Mampatkan imej untuk kelajuan penghantaran tanpa kurangkan ketajaman teks
+      const res = await fetch(croppedBase64);
+      const blob = await res.blob();
+      const file = new File([blob], "receipt.jpg", { type: "image/jpeg" });
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.15,
+        maxWidthOrHeight: 1100,
+        useWebWorker: true,
+      });
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const finalBase64 = reader.result as string;
+        sessionStorage.setItem('scannedImage', finalBase64);
+        router.push('/review');
+      };
+      reader.readAsDataURL(compressed);
+    } catch (err) {
+      console.error("Ralat memproses resit:", err);
+      setIsProcessing(false);
+      alert("Gagal memproses gambar resit. Sila cuba lagi.");
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative pb-20">
-      {/* Header */}
-      <div className="absolute top-0 w-full p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
-        <button onClick={() => router.back()} className="text-white p-2">
-          <X size={28} />
-        </button>
-        <h1 className="text-white font-semibold text-lg tracking-wide">Imbas Resit Zakat</h1>
-        <div className="w-10"></div> {/* Spacer */}
-      </div>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative select-none">
+      
+      {/* Hidden File Input untuk Galeri */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={handleGalleryPick}
+      />
 
-      {scanError && (
-        <div className="absolute top-20 w-[90%] max-w-sm bg-red-500/95 text-white p-4 rounded-2xl backdrop-blur-md shadow-2xl z-50 flex items-center gap-3 animate-[bounce_0.5s_ease-out]">
-          <AlertCircle size={32} className="shrink-0" />
-          <p className="text-[13px] font-bold leading-tight">{scanError}</p>
-          <button onClick={() => setScanError('')} className="p-2 ml-auto active:scale-90 bg-red-600/50 rounded-full">
-            <X size={16}/>
-          </button>
+      {/* ============================================================== */}
+      {/* SKRIN 1: PENYELARASAN IMEJ (ZOOM / PAN / ROTATE SEBELUM REVIEW) */}
+      {/* ============================================================== */}
+      {adjustImage ? (
+        <div className="absolute inset-0 z-50 bg-slate-950 flex flex-col justify-between p-4">
+          {/* Header Penyelarasan */}
+          <div className="flex items-center justify-between pt-2 pb-1">
+            <button 
+              onClick={() => setAdjustImage(null)} 
+              className="text-white p-2 -ml-2 rounded-full hover:bg-white/10 active:scale-90 transition-all"
+              aria-label="Kembali ke Kamera"
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <div className="text-center">
+              <h2 className="text-white font-bold text-sm tracking-wide">Selaraskan Posisi Resit</h2>
+              <p className="text-[11px] text-teal-400 font-medium">Masuk & tepatkan kawasan resit dalam petak</p>
+            </div>
+            <button 
+              onClick={resetAdjust}
+              className="text-xs font-bold text-slate-300 hover:text-white px-2.5 py-1 bg-white/10 rounded-lg active:scale-95 transition-all"
+            >
+              Reset
+            </button>
+          </div>
+
+          {/* Kawasan Petak Crop Viewport */}
+          <div className="flex-1 flex items-center justify-center py-2 relative overflow-hidden">
+            <div 
+              ref={containerRef}
+              className="w-[88%] max-w-[340px] aspect-[3/4] rounded-2xl overflow-hidden relative border-2 border-teal-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex items-center justify-center bg-black/90 cursor-grab active:cursor-grabbing touch-none"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+            >
+              {/* Imej yang sedang diselaraskan */}
+              {imgSize.width > 0 && (
+                <img
+                  src={adjustImage}
+                  alt="Pratonton Resit"
+                  draggable={false}
+                  className="max-w-none pointer-events-none select-none"
+                  style={{
+                    width: `${imgSize.width}px`,
+                    height: `${imgSize.height}px`,
+                    transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${zoom})`,
+                    transformOrigin: 'center center',
+                    transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+                  }}
+                />
+              )}
+
+              {/* Garisan Panduan Petak (Rule of Thirds Subtle Grid) */}
+              <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 border border-teal-400/20">
+                <div className="border-r border-b border-white/15"></div>
+                <div className="border-r border-b border-white/15"></div>
+                <div className="border-b border-white/15"></div>
+                <div className="border-r border-b border-white/15"></div>
+                <div className="border-r border-b border-white/15"></div>
+                <div className="border-b border-white/15"></div>
+                <div className="border-r border-white/15"></div>
+                <div className="border-r border-white/15"></div>
+                <div></div>
+              </div>
+
+              {/* Hujung Bucu Bergaya Neon */}
+              <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-teal-400 rounded-tl-xl pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-teal-400 rounded-tr-xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-teal-400 rounded-bl-xl pointer-events-none"></div>
+              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-teal-400 rounded-br-xl pointer-events-none"></div>
+            </div>
+          </div>
+
+          {/* Toolbar Kawalan: Zum & Putar */}
+          <div className="w-full max-w-sm mx-auto space-y-3 pb-2">
+            <div className="bg-slate-900/90 border border-white/10 rounded-2xl p-3 backdrop-blur-md space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-300 font-semibold px-1">
+                <span>Zum Skala</span>
+                <span className="text-teal-400 font-mono font-bold">{zoom.toFixed(2)}x</span>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => Math.max(0.7, +(z - 0.15).toFixed(2)))}
+                  className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 active:scale-90 transition-all"
+                  aria-label="Zum Keluar"
+                >
+                  <ZoomOut size={18} />
+                </button>
+
+                <input
+                  type="range"
+                  min="0.7"
+                  max="3.0"
+                  step="0.05"
+                  value={zoom}
+                  onChange={(e) => setZoom(parseFloat(e.target.value))}
+                  className="flex-1 accent-teal-500 h-2 bg-slate-700 rounded-lg cursor-pointer"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setZoom(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
+                  className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 active:scale-90 transition-all"
+                  aria-label="Zum Masuk"
+                >
+                  <ZoomIn size={18} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={rotateImage}
+                  className="flex items-center gap-1 text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 px-3 py-1.5 rounded-xl hover:bg-teal-500/30 active:scale-90 transition-all ml-1 whitespace-nowrap"
+                >
+                  <RotateCw size={15} />
+                  <span>Putar</span>
+                </button>
+              </div>
+
+              <p className="text-[10px] text-center text-slate-400 pt-0.5">
+                Sentuh & seret gambar untuk melaraskan posisi resit di tengah petak
+              </p>
+            </div>
+
+            {/* Butang Tindakan Bawah */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setAdjustImage(null)}
+                className="w-1/3 py-3.5 rounded-2xl bg-slate-800 text-slate-300 font-bold text-sm active:scale-95 transition-all hover:bg-slate-700"
+              >
+                Pilih Semula
+              </button>
+              <button
+                type="button"
+                onClick={processAndProceed}
+                disabled={isProcessing}
+                className="w-2/3 py-3.5 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-bold text-sm shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-60"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    <span>Memproses Resit...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={18} />
+                    <span>Sahkan & Imbas OCR</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+
+      /* ============================================================== */
+      /* SKRIN 2: PENGIMBAS KAMERA LANGSUNG (LIVE WEBCAM VIEW)          */
+      /* ============================================================== */
+        <div className="w-full h-screen flex flex-col justify-between relative overflow-hidden bg-black">
+          {/* Header Atas */}
+          <div className="w-full p-4 pt-5 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+            <button 
+              onClick={() => router.back()} 
+              className="text-white p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 active:scale-90 transition-all"
+              aria-label="Kembali"
+            >
+              <X size={24} />
+            </button>
+            <div className="flex items-center gap-1.5 bg-black/50 border border-white/15 px-3 py-1.5 rounded-full backdrop-blur-md">
+              <Sparkles size={14} className="text-teal-400" />
+              <h1 className="text-white font-bold text-xs tracking-wider uppercase">Pengimbas Resit Zakat</h1>
+            </div>
+            <div className="w-10"></div>
+          </div>
+
+          {/* Kamera Langsung & Petak Panduan Luas (Tolak Tepi Border) */}
+          <div className="relative w-full flex-1 flex items-center justify-center overflow-hidden">
+            <Webcam
+              audio={false}
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              videoConstraints={{
+                facingMode: facingMode,
+                aspectRatio: 3 / 4,
+                width: { ideal: 1280 },
+                height: { ideal: 960 }
+              }}
+              className="object-cover w-full h-full absolute inset-0"
+            />
+            
+            {/* Petak Imbas Luas (Tolak tepi sempadan agar resit muat selesa) */}
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
+              <div className="w-[88%] max-w-[340px] aspect-[3/4] border-2 border-teal-400/70 rounded-3xl relative flex items-center justify-center shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                
+                {/* Hiasan Bucu Neon Futuristik */}
+                <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-teal-400 rounded-tl-2xl"></div>
+                <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-teal-400 rounded-tr-2xl"></div>
+                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-teal-400 rounded-bl-2xl"></div>
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-teal-400 rounded-br-2xl"></div>
+                
+                {/* Animasi Garisan Pengimbas Bergerak */}
+                <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-teal-400 to-transparent shadow-[0_0_10px_2px_rgba(45,212,191,0.9)] animate-[scan_2.5s_ease-in-out_infinite]"></div>
+              </div>
+
+              {/* Arahan Penggunaan Mesra */}
+              <p className="text-white text-xs font-semibold bg-black/60 px-4 py-2 rounded-full absolute bottom-[18%] shadow-lg border border-white/15 backdrop-blur-md">
+                Posisikan resit di dalam petak atau muat naik dari Galeri
+              </p>
+            </div>
+          </div>
+
+          {/* Bar Kawalan Bawah: Galeri | Butang Shutter Kamera | Tukar Kamera */}
+          <div className="w-full pb-8 pt-4 px-6 bg-gradient-to-t from-black via-black/80 to-transparent z-20 flex items-center justify-around">
+            
+            {/* Butang Pilih dari Galeri */}
+            <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center gap-1 text-white/80 hover:text-white active:scale-95 transition-all group"
+            >
+              <div className="w-13 h-13 rounded-2xl bg-white/10 group-hover:bg-white/20 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-lg transition-all">
+                <ImageIcon size={22} className="text-white drop-shadow" />
+              </div>
+              <span className="text-[11px] font-bold tracking-tight">Galeri</span>
+            </button>
+
+            {/* Butang Shutter Tangkap Gambar */}
+            <button 
+              type="button"
+              onClick={capture}
+              disabled={isProcessing}
+              className="w-20 h-20 rounded-full bg-white/20 p-1.5 backdrop-blur-md active:scale-90 transition-transform shadow-2xl border border-white/30 flex items-center justify-center group"
+              aria-label="Ambil Gambar Resit"
+            >
+              <div className="w-full h-full rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 group-hover:from-teal-400 group-hover:to-emerald-300 flex items-center justify-center shadow-inner transition-all">
+                <Camera size={34} className="text-white drop-shadow" />
+              </div>
+            </button>
+
+            {/* Butang Tukar Kamera Depan / Belakang */}
+            <button 
+              type="button"
+              onClick={toggleCamera}
+              className="flex flex-col items-center gap-1 text-white/80 hover:text-white active:scale-95 transition-all group"
+            >
+              <div className="w-13 h-13 rounded-2xl bg-white/10 group-hover:bg-white/20 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-lg transition-all">
+                <RefreshCw size={20} className="text-white drop-shadow" />
+              </div>
+              <span className="text-[11px] font-bold tracking-tight">Tukar</span>
+            </button>
+          </div>
         </div>
       )}
-
-      {/* Webcam */}
-      <div className="relative w-full h-[85vh] flex items-center justify-center overflow-hidden bg-gray-900">
-        <Webcam
-          audio={false}
-          ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          videoConstraints={{
-            facingMode: 'environment', // Use back camera on mobile
-            aspectRatio: 3/4
-          }}
-          className="object-cover w-full h-full absolute inset-0"
-        />
-        
-        {/* Scanning Guidelines Overlay */}
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
-          {/* Petak segi empat sama untuk resit 3x3 inci */}
-          <div className="w-3/4 aspect-square border-2 border-white/40 rounded-xl relative flex items-center justify-center bg-teal-400/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
-            {/* Corners (Futuristic UI) */}
-            <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-teal-400 rounded-tl-xl"></div>
-            <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-teal-400 rounded-tr-xl"></div>
-            <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-teal-400 rounded-bl-xl"></div>
-            <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-teal-400 rounded-br-xl"></div>
-            
-            {/* Animated Scanning Line */}
-            <div className="absolute top-0 w-full h-1 bg-teal-400 shadow-[0_0_8px_2px_rgba(16,185,129,0.8)] animate-[scan_2s_ease-in-out_infinite]"></div>
-          </div>
-          <p className="text-white text-sm font-medium bg-black/60 px-4 py-2 rounded-full absolute bottom-[15%] shadow-lg border border-white/10 backdrop-blur-sm">
-            Posisikan resit dalam petak di atas
-          </p>
-        </div>
-      </div>
-
-      {/* Capture Button */}
-      <div className="absolute bottom-24 w-full flex justify-center z-20">
-        <button 
-          onClick={capture}
-          disabled={isProcessing}
-          className="w-[84px] h-[84px] bg-gray-200/50 rounded-full flex items-center justify-center backdrop-blur-md active:scale-95 transition-transform disabled:opacity-50"
-        >
-          {isProcessing ? (
-            <div className="w-[72px] h-[72px] bg-white rounded-full flex items-center justify-center">
-              <Loader2 className="animate-spin text-teal-600" size={32} />
-            </div>
-          ) : (
-            <div className="w-[72px] h-[72px] bg-white rounded-full flex items-center justify-center shadow-inner">
-               <Camera size={36} className="text-gray-800" />
-            </div>
-          )}
-        </button>
-      </div>
     </div>
   );
 }
