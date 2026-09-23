@@ -31,36 +31,63 @@ export default function ReviewPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   
-  const [riceTypes, setRiceTypes] = useState<any[]>([]);
+  const [riceTypes, setRiceTypes] = useState<any[]>([
+    { id: 'bf3a55f9-4fec-40b3-b690-3136f8b6b71d', code: 'B_SIAM_1447H', name: 'Beras Siam', price: 1.93, activeYear: '1447H' },
+    { id: '1b1bebf6-4e54-4422-9847-59ef872dc5d5', code: 'B_WANGI_1447H', name: 'Beras Wangi', price: 2.84, activeYear: '1447H' },
+    { id: 'd2bd2bb5-0526-4fbb-b02e-765893e63f78', code: 'B_SIAM_1446H', name: 'Beras Siam', price: 1.90, activeYear: '1446H' },
+    { id: 'fc5d684b-f355-46c0-be2f-9431351dd792', code: 'B_WANGI_1446H', name: 'Beras Wangi', price: 2.80, activeYear: '1446H' },
+  ]);
   const [detectionInfo, setDetectionInfo] = useState<DetectionInfo | null>(null);
   
   const [formData, setFormData] = useState({
     receiptNumber: '',
     payerName: '',
-    riceTypeId: '',
+    riceTypeId: 'bf3a55f9-4fec-40b3-b690-3136f8b6b71d',
     icNumber: '',
     isVerified: false,
     zakatType: 'FITRAH',
     manualTotal: '0',
     dependents: 0, 
     paymentDate: new Date().toISOString().split('T')[0],
-    zakatYear: '1447H' // default current year
+    zakatYear: '1447H'
   });
 
-  // Extract unique years from rice types
-  const availableYears = Array.from(new Set(riceTypes.map(r => r.activeYear))).sort().reverse();
-  const filteredRiceTypes = riceTypes.filter(r => r.activeYear === formData.zakatYear);
+  // Senarai tahun zakat yang ada
+  const availableYears = Array.from(new Set(riceTypes.map(r => r.activeYear))).filter(Boolean).sort().reverse();
+  const effectiveYear = availableYears.includes(formData.zakatYear) 
+    ? formData.zakatYear 
+    : (availableYears[0] || '1447H');
+
+  const filteredRiceTypes = riceTypes.filter(r => r.activeYear === effectiveYear);
+  const displayRiceTypes = filteredRiceTypes.length > 0 ? filteredRiceTypes : riceTypes;
+
+  const isReceiptDW = formData.receiptNumber.trim().toUpperCase().startsWith('DW');
+  const isReceiptCS = formData.receiptNumber.trim().toUpperCase().startsWith('CS');
+
+  const selectedRice = displayRiceTypes.find(r => r.id === formData.riceTypeId)
+    || riceTypes.find(r => r.id === formData.riceTypeId)
+    || displayRiceTypes.find(r => isReceiptDW ? (r.name.toLowerCase().includes('wangi') || r.code?.includes('DW')) : (r.name.toLowerCase().includes('siam') || r.code?.includes('CS')))
+    || displayRiceTypes[0]
+    || riceTypes[0];
+
+  const fallbackPrice = isReceiptDW ? (effectiveYear === '1446H' ? 2.80 : 2.84) : (effectiveYear === '1446H' ? 1.90 : 1.93);
+  const currentPrice = (selectedRice && selectedRice.price > 0) ? selectedRice.price : fallbackPrice;
+  
+  // Total Muzakki = 1 (Pembayar) + Bilangan Tanggungan
+  const totalMuzakki = formData.dependents + 1;
+  const totalAmount = formData.zakatType === 'HARTA' 
+    ? (parseFloat(formData.manualTotal) || 0).toFixed(2)
+    : (totalMuzakki * currentPrice).toFixed(2);
 
   useEffect(() => {
     const fetchRiceTypes = async () => {
       try {
         const res = await fetch('/api/rice-types');
-        const data = await res.json();
-        setRiceTypes(data);
-        if (data.length > 0) {
-           const defaultYear = data[0].activeYear;
-           const yearItems = data.filter((r: any) => r.activeYear === defaultYear);
-           setFormData(prev => ({ ...prev, zakatYear: defaultYear, riceTypeId: yearItems[0]?.id || '' }));
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setRiceTypes(data);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch rice types", err);
@@ -68,15 +95,6 @@ export default function ReviewPage() {
     };
     fetchRiceTypes();
   }, []);
-
-  const selectedRice = filteredRiceTypes.find(r => r.id === formData.riceTypeId);
-  const currentPrice = selectedRice ? selectedRice.price : 0;
-  
-  // Total Muzakki = 1 (Pembayar) + Bilangan Tanggungan
-  const totalMuzakki = formData.dependents + 1;
-  const totalAmount = formData.zakatType === 'HARTA' 
-    ? formData.manualTotal 
-    : (totalMuzakki * currentPrice).toFixed(2);
 
   useEffect(() => {
     const savedImage = sessionStorage.getItem('scannedImage');
@@ -115,7 +133,10 @@ export default function ReviewPage() {
       let extYear = formData.zakatYear;
       const hijriMatch = text.match(/(14\d{2})H?/i);
       if (hijriMatch) {
-         extYear = hijriMatch[1] + "H";
+         const detectedYear = hijriMatch[1] + "H";
+         if (riceTypes.some(r => r.activeYear === detectedYear)) {
+           extYear = detectedYear;
+         }
       }
 
       // 6. Padankan Jenis Beras berdasarkan kod DW / CS atau warna kertas
@@ -126,14 +147,14 @@ export default function ReviewPage() {
       let extRiceId = yearRices[0]?.id || '';
       const detectedCode = receiptData.code || paperColorResult.detectedCode;
 
-      if (detectedCode === 'DW' || text.toLowerCase().includes('wangi')) {
+      if (detectedCode === 'DW' || text.toLowerCase().includes('wangi') || text.toLowerCase().includes('hijau')) {
         const wangi = yearRices.find(r => 
           r.name.toLowerCase().includes('wangi') || 
           r.code?.includes('DW') || 
           r.code?.toLowerCase().includes('wangi')
         );
         if (wangi) extRiceId = wangi.id;
-      } else if (detectedCode === 'CS' || text.toLowerCase().includes('siam')) {
+      } else if (detectedCode === 'CS' || text.toLowerCase().includes('siam') || text.toLowerCase().includes('kuning')) {
         const siam = yearRices.find(r => 
           r.name.toLowerCase().includes('siam') || 
           r.code?.includes('CS') || 
@@ -186,22 +207,26 @@ export default function ReviewPage() {
 
   // Pilihan Pantas untuk Jenis Beras (DW vs CS)
   const selectRiceByCode = (code: 'DW' | 'CS') => {
-    const target = filteredRiceTypes.find(r => 
-      (code === 'DW' && (r.name.toLowerCase().includes('wangi') || r.code?.includes('DW') || r.code?.includes('WANGI'))) ||
-      (code === 'CS' && (r.name.toLowerCase().includes('siam') || r.code?.includes('CS') || r.code?.includes('SIAM')))
-    );
-    if (target) {
-      setFormData(prev => {
-        // Kekalkan 6-digit nombor resit, ubah awalan kod sahaja
-        const digitsMatch = prev.receiptNumber.match(/\d{5,7}/);
-        const digits = digitsMatch ? digitsMatch[0] : '';
-        return {
-          ...prev,
-          riceTypeId: target.id,
-          receiptNumber: digits ? `${code} ${digits}` : prev.receiptNumber
-        };
-      });
-    }
+    const candidates = displayRiceTypes.length > 0 ? displayRiceTypes : riceTypes;
+    const target = candidates.find(r => 
+      (code === 'DW' && (r.name.toLowerCase().includes('wangi') || r.code?.includes('DW') || r.code?.toLowerCase().includes('wangi'))) ||
+      (code === 'CS' && (r.name.toLowerCase().includes('siam') || r.code?.includes('CS') || r.code?.toLowerCase().includes('siam')))
+    ) || candidates[0];
+
+    setFormData(prev => {
+      // Kekalkan 6-digit nombor resit, ubah awalan kod sahaja
+      const digitsMatch = prev.receiptNumber.match(/\d{4,8}/);
+      const digits = digitsMatch ? digitsMatch[0] : '';
+      const newNum = digits 
+        ? `${code} ${digits}` 
+        : (prev.receiptNumber.replace(/^(DW|CS)\s*/i, '').trim() ? `${code} ${prev.receiptNumber.replace(/^(DW|CS)\s*/i, '').trim()}` : `${code} `);
+
+      return {
+        ...prev,
+        riceTypeId: target?.id || prev.riceTypeId,
+        receiptNumber: newNum
+      };
+    });
   };
 
   // Kawalan Bilangan Muzakki oleh Amil
@@ -268,6 +293,7 @@ export default function ReviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          riceTypeId: formData.riceTypeId || selectedRice?.id,
           totalAmount: parseFloat(totalAmount),
           zakatType: formData.zakatType,
           imageUrl: compressedThumb
@@ -305,8 +331,8 @@ export default function ReviewPage() {
   }
 
   // Tentukan sama ada jenis beras semasa ialah DW atau CS
-  const isSelectedDW = selectedRice?.name.toLowerCase().includes('wangi') || selectedRice?.code?.includes('DW');
-  const isSelectedCS = selectedRice?.name.toLowerCase().includes('siam') || selectedRice?.code?.includes('CS');
+  const isSelectedDW = selectedRice?.name.toLowerCase().includes('wangi') || selectedRice?.code?.includes('DW') || isReceiptDW;
+  const isSelectedCS = selectedRice?.name.toLowerCase().includes('siam') || selectedRice?.code?.includes('CS') || isReceiptCS;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col pb-[110px]">
@@ -533,11 +559,20 @@ export default function ReviewPage() {
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tahun Zakat</label>
               <select 
-                value={formData.zakatYear} 
+                value={effectiveYear} 
                 onChange={e => {
                   const newYear = e.target.value;
                   const yearItems = riceTypes.filter((r: any) => r.activeYear === newYear);
-                  setFormData({...formData, zakatYear: newYear, riceTypeId: yearItems[0]?.id || ''});
+                  const isWangi = selectedRice?.name.toLowerCase().includes('wangi') || selectedRice?.code?.includes('DW') || isReceiptDW;
+                  const matchedItem = yearItems.find((r: any) => 
+                    isWangi ? (r.name.toLowerCase().includes('wangi') || r.code?.includes('DW')) : (r.name.toLowerCase().includes('siam') || r.code?.includes('CS'))
+                  ) || yearItems[0];
+
+                  setFormData(prev => ({
+                    ...prev, 
+                    zakatYear: newYear, 
+                    riceTypeId: matchedItem?.id || yearItems[0]?.id || prev.riceTypeId
+                  }));
                 }}
                 className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm appearance-none cursor-pointer"
               >
@@ -555,52 +590,66 @@ export default function ReviewPage() {
               
               {/* Butang Pintas Pilihan Visual (Warna Kertas Resit) */}
               <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => selectRiceByCode('DW')}
-                  className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
-                    isSelectedDW 
-                      ? 'bg-emerald-500 text-white border-emerald-600 shadow-md shadow-emerald-500/20' 
-                      : 'bg-emerald-50/60 border-emerald-200 text-emerald-900 hover:bg-emerald-100/70'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-85">Kertas Hijau</span>
-                    {isSelectedDW && <Check size={16} className="text-white" />}
-                  </div>
-                  <p className="font-extrabold text-sm">DW - Beras Wangi</p>
-                  <p className={`text-xs font-semibold mt-0.5 ${isSelectedDW ? 'text-emerald-100' : 'text-emerald-700'}`}>
-                    $2.84 / orang
-                  </p>
-                </button>
+                {(() => {
+                  const dwRice = displayRiceTypes.find(r => r.name.toLowerCase().includes('wangi') || r.code?.includes('DW'))
+                    || riceTypes.find(r => (r.activeYear === effectiveYear) && (r.name.toLowerCase().includes('wangi') || r.code?.includes('DW')));
+                  const dwPrice = dwRice?.price || (effectiveYear === '1446H' ? 2.80 : 2.84);
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => selectRiceByCode('DW')}
+                      className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                        isSelectedDW 
+                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-md shadow-emerald-500/20' 
+                          : 'bg-emerald-50/60 border-emerald-200 text-emerald-900 hover:bg-emerald-100/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-85">Kertas Hijau</span>
+                        {isSelectedDW && <Check size={16} className="text-white" />}
+                      </div>
+                      <p className="font-extrabold text-sm">DW - Beras Wangi</p>
+                      <p className={`text-xs font-semibold mt-0.5 ${isSelectedDW ? 'text-emerald-100' : 'text-emerald-700'}`}>
+                        ${dwPrice.toFixed(2)} / orang
+                      </p>
+                    </button>
+                  );
+                })()}
 
-                <button
-                  type="button"
-                  onClick={() => selectRiceByCode('CS')}
-                  className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
-                    isSelectedCS 
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20' 
-                      : 'bg-amber-50/60 border-amber-200 text-amber-900 hover:bg-amber-100/70'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-85">Kertas Kuning</span>
-                    {isSelectedCS && <Check size={16} className="text-white" />}
-                  </div>
-                  <p className="font-extrabold text-sm">CS - Beras Siam</p>
-                  <p className={`text-xs font-semibold mt-0.5 ${isSelectedCS ? 'text-amber-100' : 'text-amber-700'}`}>
-                    $1.93 / orang
-                  </p>
-                </button>
+                {(() => {
+                  const csRice = displayRiceTypes.find(r => r.name.toLowerCase().includes('siam') || r.code?.includes('CS'))
+                    || riceTypes.find(r => (r.activeYear === effectiveYear) && (r.name.toLowerCase().includes('siam') || r.code?.includes('CS')));
+                  const csPrice = csRice?.price || (effectiveYear === '1446H' ? 1.90 : 1.93);
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => selectRiceByCode('CS')}
+                      className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                        isSelectedCS 
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20' 
+                          : 'bg-amber-50/60 border-amber-200 text-amber-900 hover:bg-amber-100/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-85">Kertas Kuning</span>
+                        {isSelectedCS && <Check size={16} className="text-white" />}
+                      </div>
+                      <p className="font-extrabold text-sm">CS - Beras Siam</p>
+                      <p className={`text-xs font-semibold mt-0.5 ${isSelectedCS ? 'text-amber-100' : 'text-amber-700'}`}>
+                        ${csPrice.toFixed(2)} / orang
+                      </p>
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Dropdown Lengkap Sekiranya Terdapat Jenis Beras Tambahan */}
               <select 
-                value={formData.riceTypeId} 
+                value={selectedRice?.id || formData.riceTypeId} 
                 onChange={e => setFormData({...formData, riceTypeId: e.target.value})}
                 className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-slate-700 text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm cursor-pointer mt-1"
               >
-                {filteredRiceTypes.map(type => (
+                {displayRiceTypes.map(type => (
                   <option key={type.id} value={type.id}>{type.name} (${type.price.toFixed(2)})</option>
                 ))}
               </select>
@@ -734,7 +783,12 @@ export default function ReviewPage() {
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500 font-medium">Beras</span>
-                <span className="font-bold text-slate-800">{selectedRice?.name}</span>
+                <span className="font-bold text-slate-800">
+                  {selectedRice?.name || (isReceiptDW ? 'Beras Wangi' : 'Beras Siam')}
+                  <span className="text-xs font-semibold text-slate-500 ml-1.5">
+                    (${currentPrice.toFixed(2)})
+                  </span>
+                </span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500 font-medium">Jumlah Muzakki</span>

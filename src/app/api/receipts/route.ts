@@ -33,18 +33,39 @@ export async function POST(req: Request) {
 
     // 4. Sahkan RiceTypeId (Pastikan wujud dalam DB atau null jika Zakat Harta)
     let validRiceTypeId: string | null = null;
-    if (data.zakatType !== 'HARTA' && data.riceTypeId && typeof data.riceTypeId === 'string' && data.riceTypeId.trim() !== '') {
-      const checkRice = await prisma.riceType.findUnique({ where: { id: data.riceTypeId } });
+    let selectedRicePrice = 0;
+    if (data.zakatType !== 'HARTA') {
+      let checkRice = null;
+      if (data.riceTypeId && typeof data.riceTypeId === 'string' && data.riceTypeId.trim() !== '') {
+        checkRice = await prisma.riceType.findUnique({ where: { id: data.riceTypeId } });
+      }
+      if (!checkRice) {
+        // Cari mengikut nama / kod beras jika ID tidak ditemui
+        const isWangi = receiptNumber.startsWith('DW') || (typeof data.riceTypeId === 'string' && data.riceTypeId.toLowerCase().includes('wangi'));
+        checkRice = await prisma.riceType.findFirst({
+          where: {
+            name: { contains: isWangi ? 'Wangi' : 'Siam', mode: 'insensitive' }
+          }
+        });
+      }
+      if (!checkRice) {
+        checkRice = await prisma.riceType.findFirst({ where: { activeYear: '1447H' } }) || await prisma.riceType.findFirst();
+      }
       if (checkRice) {
         validRiceTypeId = checkRice.id;
-      } else {
-        const defaultRice = await prisma.riceType.findFirst({ where: { activeYear: '1447H' } }) || await prisma.riceType.findFirst();
-        validRiceTypeId = defaultRice?.id || null;
+        selectedRicePrice = checkRice.price;
       }
     }
 
-    const totalAmount = data.totalAmount !== undefined ? parseFloat(data.totalAmount) : 0;
     const dependents = data.dependents !== undefined ? parseInt(data.dependents, 10) : 0;
+    let totalAmount = data.totalAmount !== undefined ? parseFloat(data.totalAmount) : 0;
+    
+    // Failsafe: Jika bayaran fitrah $0.00, kira semula berasaskan (1 + tanggungan) * harga beras
+    if (data.zakatType !== 'HARTA' && (!totalAmount || totalAmount <= 0)) {
+      const price = selectedRicePrice > 0 ? selectedRicePrice : (receiptNumber.startsWith('DW') ? 2.84 : 1.93);
+      totalAmount = parseFloat(((dependents + 1) * price).toFixed(2));
+    }
+
     const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
 
     const safeImageUrl = (data.imageUrl && typeof data.imageUrl === 'string' && data.imageUrl.length < 150000) ? data.imageUrl : null;
