@@ -49,7 +49,7 @@ export async function GET() {
       new Date(r.paymentDate).toLocaleDateString('ms-MY'),
       `"${r.payerName}"`, // Quote strings that might have commas
       r.payerIcNumber || '-',
-      r.riceType.name,
+      r.riceType?.name || r.zakatType || '-',
       r.dependents.toString(),
       r.totalAmount.toFixed(2),
       `"${r.amil.name}"`,

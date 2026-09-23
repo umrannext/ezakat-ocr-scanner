@@ -162,7 +162,7 @@ export default async function Home() {
                 </div>
                 <div className="text-right flex flex-col items-end">
                   <span className="inline-block bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
-                    {receipt.riceType.name}
+                    {receipt.riceType?.name || receipt.zakatType || 'Zakat'}
                   </span>
                   <p className="text-[10px] text-slate-400 mt-2 font-medium tracking-wide">
                     {new Date(receipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })}

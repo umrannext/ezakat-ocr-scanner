@@ -330,6 +330,8 @@ export default function ReviewPage() {
             )}
           </div>
 
+          {formData.zakatType === 'FITRAH' && (
+          <>
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tahun Zakat</label>
             <select 
@@ -373,8 +375,9 @@ export default function ReviewPage() {
                 ))}
               </select>
             </div>
-          )}
           </div>
+          </>
+          )}
 
           <div className="mt-2 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl p-4 border border-teal-100 flex justify-between items-center shadow-sm">
             <div>

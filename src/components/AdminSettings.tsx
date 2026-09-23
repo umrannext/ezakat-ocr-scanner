@@ -164,10 +164,10 @@ export default function AdminSettings() {
           </div>
           <div className="flex-1 bg-white p-3 rounded-xl border border-amber-200">
             <label className="text-[10px] font-bold text-slate-500 uppercase block">Nisab Zakat Harta (85g)</label>
-            <div className="text-lg font-bold text-slate-800">$\{parseFloat(goldPrice || '0') > 0 ? (parseFloat(goldPrice) * 85).toFixed(2) : '0.00'\}</div>
+            <div className="text-lg font-bold text-slate-800">${parseFloat(goldPrice || '0') > 0 ? (parseFloat(goldPrice) * 85).toFixed(2) : '0.00'}</div>
           </div>
           <button onClick={handleSaveGold} disabled={isSavingGold} className="bg-amber-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-amber-700 flex items-center gap-2">
-            \{isSavingGold ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />\}
+            {isSavingGold ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
             Simpan
           </button>
         </div>
