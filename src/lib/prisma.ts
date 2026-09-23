@@ -2,20 +2,30 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+let client: PrismaClient | null = null;
 
-function makePrismaClient() {
-  const connectionString = process.env.DATABASE_URL;
-  if (connectionString) {
+function getClient(): PrismaClient {
+  if (!client) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error(`DATABASE_URL is missing in environment! Available keys: ${Object.keys(process.env).join(', ')}`);
+    }
     const pool = new Pool({ connectionString });
     const adapter = new PrismaPg(pool);
-    return new PrismaClient({ adapter });
+    client = new PrismaClient({ adapter });
   }
-  return new PrismaClient();
+  return client;
 }
 
-export const prisma = globalForPrisma.prisma || makePrismaClient();
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const instance = getClient();
+    const value = (instance as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
 
 export default prisma;
