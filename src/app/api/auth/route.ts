@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
+
 const hashPassword = (password: string) => {
   return crypto.createHash('sha256').update(password).digest('hex');
 };
@@ -30,9 +31,18 @@ export async function POST(req: Request) {
     return response;
   } catch (error: any) {
     console.error(error);
+    let dbTarget = 'unknown';
+    try {
+      const raw = (process.env.DATABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+      const u = new URL(raw);
+      dbTarget = `${u.hostname}:${u.port} (user: ${u.username})`;
+    } catch (e: any) {
+      dbTarget = `PARSE_ERROR: ${e.message}`;
+    }
     return NextResponse.json({ 
       error: 'Ralat pelayan', 
       details: error?.message || String(error),
+      dbTarget,
       stack: error?.stack 
     }, { status: 500 });
   }

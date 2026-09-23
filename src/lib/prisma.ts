@@ -6,7 +6,8 @@ let client: PrismaClient | null = null;
 
 function getClient(): PrismaClient {
   if (!client) {
-    const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL;
+    let connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL || '';
+    connectionString = connectionString.trim().replace(/^["']|["']$/g, '');
     if (!connectionString) {
       throw new Error(`DATABASE_URL is missing in environment! Available keys: ${Object.keys(process.env).join(', ')}`);
     }
