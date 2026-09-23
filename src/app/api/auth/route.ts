@@ -3,13 +3,13 @@ import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 
-const prisma = new PrismaClient();
-
+// const prisma = new PrismaClient();
 const hashPassword = (password: string) => {
   return crypto.createHash('sha256').update(password).digest('hex');
 };
 
 export async function POST(req: Request) {
+  const prisma = new PrismaClient();
   try {
     const { loginId, password } = await req.json();
     const user = await prisma.user.findUnique({ where: { loginId } });
@@ -31,8 +31,8 @@ export async function POST(req: Request) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    return NextResponse.json({ error: 'Ralat pelayan' }, { status: 500 });
+    return NextResponse.json({ error: 'Ralat pelayan', details: error?.message || String(error) }, { status: 500 });
   }
 }
