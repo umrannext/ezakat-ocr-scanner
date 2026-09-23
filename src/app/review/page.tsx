@@ -168,7 +168,7 @@ export default function ReviewPage() {
       setFormData(prev => ({
         ...prev,
         receiptNumber: receiptData.fullNumber,
-        payerName: 'SILA KEMASKINI (OCR TULISAN TANGAN)',
+        payerName: '',
         zakatType: 'FITRAH',
         zakatYear: extYear,
         riceTypeId: extRiceId,
@@ -459,9 +459,9 @@ export default function ReviewPage() {
             </p>
           </div>
 
-          {/* SEMAKAN KAD PINTAR */}
+          {/* NOMBOR KAD PINTAR */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Semakan Kad Pintar</label>
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Nombor Kad Pintar</label>
             <div className="flex gap-2">
               <input 
                 type="text" 
@@ -482,13 +482,21 @@ export default function ReviewPage() {
 
           {/* NAMA PEMBAYAR */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Nama Pembayar</label>
+            <div className="flex items-center justify-between ml-1">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                Nama Pembayar
+              </label>
+              <span className="text-[11px] font-normal text-slate-400">
+                (Optional)
+              </span>
+            </div>
             <div className="relative">
               <input 
                 type="text" 
+                placeholder="(Optional)"
                 value={formData.payerName} 
                 onChange={e => setFormData({...formData, payerName: e.target.value})}
-                className={`w-full bg-white border rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 outline-none pr-10 shadow-sm transition-all ${formData.isVerified ? 'border-teal-400 bg-teal-50/30' : 'border-slate-200 focus:border-teal-500'}`}
+                className={`w-full bg-white border rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 outline-none pr-10 shadow-sm transition-all placeholder:text-slate-400 placeholder:font-normal ${formData.isVerified ? 'border-teal-400 bg-teal-50/30' : 'border-slate-200 focus:border-teal-500'}`}
               />
               {formData.isVerified && (
                 <div className="absolute right-4 top-4 text-teal-500 bg-white rounded-full">
@@ -496,11 +504,9 @@ export default function ReviewPage() {
                 </div>
               )}
             </div>
-            {formData.payerName.includes('KEMASKINI') && (
-              <p className="text-[10px] text-amber-600 ml-1 font-medium mt-1">
-                Sila lengkapkan nama pembayar secara manual atau gunakan Semakan Kad Pintar di atas.
-              </p>
-            )}
+            <p className="text-[11px] text-slate-400 ml-1 font-normal mt-0.5">
+              (Optional)
+            </p>
           </div>
 
           {/* BAHAGIAN KHAS ZAKAT FITRAH */}
@@ -674,8 +680,8 @@ export default function ReviewPage() {
         </button>
         <button 
           onClick={() => {
-            if (!formData.receiptNumber || !formData.payerName || !formData.riceTypeId) {
-              alert("Sila lengkapkan maklumat penting (Nombor Resit, Nama & Jenis Beras).");
+            if (!formData.receiptNumber || !formData.riceTypeId) {
+              alert("Sila lengkapkan maklumat penting (Nombor Resit & Jenis Beras).");
               return;
             }
             setShowConfirm(true);
@@ -707,7 +713,7 @@ export default function ReviewPage() {
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500 font-medium">Nama</span>
-                <span className="font-bold text-slate-800 text-right max-w-[150px] truncate">{formData.payerName}</span>
+                <span className="font-bold text-slate-800 text-right max-w-[150px] truncate">{formData.payerName || 'Pembayar Zakat'}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500 font-medium">Beras</span>
