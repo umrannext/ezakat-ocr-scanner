@@ -10,6 +10,7 @@ import {
   detectPaperColorFromImage, 
   extractReceiptCodeAndNumber, 
   extractMuzakkiInfo, 
+  compressReceiptImage,
   PaperColorResult 
 } from '@/lib/ocr-helper';
 
@@ -246,6 +247,22 @@ export default function ReviewPage() {
     setIsSaving(true);
     setShowConfirm(false);
     try {
+      // Mampatkan imej asal kepada saiz ultra-ringan (~15KB - 20KB) untuk pangkalan data & rujukan pantas
+      let compressedThumb: string | null = null;
+      if (image) {
+        try {
+          compressedThumb = await compressReceiptImage(image, 520, 0.58);
+          // Simpan juga salinan dalam LocalStorage untuk akses sepantas kilat
+          if (typeof window !== 'undefined' && formData.receiptNumber) {
+            try {
+              localStorage.setItem(`receipt_img_${formData.receiptNumber.trim()}`, compressedThumb);
+            } catch (_) {}
+          }
+        } catch (e) {
+          console.warn('Gagal memampatkan imej thumbnail:', e);
+        }
+      }
+
       const res = await fetch('/api/receipts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +270,7 @@ export default function ReviewPage() {
           ...formData,
           totalAmount: parseFloat(totalAmount),
           zakatType: formData.zakatType,
-          imageUrl: null // Elakkan penghantaran data Base64 berat yang menamatkan sambungan TCP
+          imageUrl: compressedThumb
         })
       });
       

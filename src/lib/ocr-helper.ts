@@ -358,3 +358,59 @@ export function extractMuzakkiInfo(text: string): { totalMuzakki: number; depend
   // 5. Lalai kepada 1 pembayar (tiada tanggungan)
   return { totalMuzakki: 1, dependents: 0, source: 'Lalai (1 Orang Muzakki)' };
 }
+
+/**
+ * Memampatkan imej resit kepada saiz ultra-ringan (~15KB - 20KB)
+ * untuk disimpan ke dalam pangkalan data Supabase tanpa membebankan sambungan TCP
+ */
+export async function compressReceiptImage(
+  base64Image: string,
+  maxDimension = 520,
+  quality = 0.58
+): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === 'undefined' || !base64Image) {
+        resolve(base64Image);
+        return;
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(base64Image);
+          return;
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.onerror = () => resolve(base64Image);
+      img.src = base64Image;
+    } catch {
+      resolve(base64Image);
+    }
+  });
+}
+

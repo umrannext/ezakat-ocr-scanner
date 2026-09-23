@@ -1,6 +1,9 @@
 "use client";
 import React, { useState } from 'react';
-import { FileText, Search, SlidersHorizontal, Edit2, Trash2, AlertCircle, Loader2, X } from 'lucide-react';
+import { 
+  FileText, Search, SlidersHorizontal, Edit2, Trash2, 
+  AlertCircle, Loader2, X, Eye, Download, ExternalLink, Image as ImageIcon 
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function HistoryClient({ initialReceipts, userRole }: { initialReceipts: any[], userRole: string }) {
@@ -15,6 +18,8 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
   
   const [editData, setEditData] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [previewReceipt, setPreviewReceipt] = useState<any | null>(null);
 
   let filtered = receipts.filter(r => 
     r.payerName.toLowerCase().includes(search.toLowerCase()) || 
@@ -131,14 +136,28 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
           filtered.map((receipt) => (
             <div key={receipt.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/50 relative group transition-shadow hover:shadow-md">
               <div className="flex justify-between items-start">
-                <div className="flex gap-4 items-center overflow-hidden">
-                  <div className="bg-slate-50 p-3 rounded-xl shrink-0 group-hover:bg-teal-50 transition-colors">
-                    <FileText size={20} className="text-slate-400 group-hover:text-teal-500 transition-colors" />
-                  </div>
+                <div className="flex gap-3.5 items-center overflow-hidden">
+                  {receipt.imageUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewReceipt(receipt)}
+                      className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-200 relative group/thumb shadow-xs active:scale-95 transition-transform bg-slate-900"
+                      title="Klik untuk lihat gambar resit asal"
+                    >
+                      <img src={receipt.imageUrl} alt="Resit" className="w-full h-full object-cover opacity-90 group-hover/thumb:opacity-100 transition-opacity" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                        <Eye size={16} className="text-white drop-shadow" />
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="bg-slate-50 p-3 rounded-xl shrink-0 group-hover:bg-teal-50 transition-colors">
+                      <FileText size={20} className="text-slate-400 group-hover:text-teal-500 transition-colors" />
+                    </div>
+                  )}
                   <div className="overflow-hidden">
-                    <p className="font-bold text-slate-800 text-sm truncate pr-2">{receipt.payerName}</p>
+                    <p className="font-bold text-slate-800 text-sm truncate pr-2">{receipt.payerName || 'Pembayar Zakat'}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5 font-medium tracking-wide flex items-center gap-1.5 flex-wrap">
-                      <span className="text-slate-600 font-bold whitespace-nowrap">{receipt.receiptNumber}</span>
+                      <span className="text-slate-700 font-bold whitespace-nowrap font-mono">{receipt.receiptNumber}</span>
                       <span className="text-slate-300">•</span>
                       <span className="whitespace-nowrap"><span className="text-teal-600 font-bold">{receipt.dependents === 0 ? 'Tiada' : receipt.dependents}</span> Tgn</span>
                     </p>
@@ -151,7 +170,7 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
                 </div>
                 <div className="text-right flex flex-col items-end shrink-0 ml-2">
                   <span className="inline-block bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
-                    {receipt.riceType.name}
+                    {receipt.riceType?.name || receipt.zakatType}
                   </span>
                   <p className="text-[10px] text-slate-400 mt-2 font-medium tracking-wide">
                     {new Date(receipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -160,22 +179,38 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
                 </div>
               </div>
               
-              {userRole === 'ADMIN' && (
-                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end gap-2">
+              {/* Footer Tindakan: Lihat Resit & Edit/Padam */}
+              <div className="mt-3.5 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                {receipt.imageUrl ? (
                   <button 
-                    onClick={() => setEditData(receipt)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 active:scale-95 transition-all"
+                    type="button"
+                    onClick={() => setPreviewReceipt(receipt)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-teal-50/80 hover:bg-teal-100 text-teal-700 font-bold active:scale-95 transition-all"
                   >
-                    <Edit2 size={14} /> Edit
+                    <Eye size={14} className="text-teal-600" />
+                    <span>Lihat Resit</span>
                   </button>
-                  <button 
-                    onClick={() => setDeleteId(receipt.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 active:scale-95 transition-all"
-                  >
-                    <Trash2 size={14} /> Padam
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <span className="text-[10px] text-slate-300 italic">Tiada foto resit</span>
+                )}
+
+                {userRole === 'ADMIN' && (
+                  <div className="flex gap-1.5">
+                    <button 
+                      onClick={() => setEditData(receipt)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 active:scale-95 transition-all"
+                    >
+                      <Edit2 size={13} /> Edit
+                    </button>
+                    <button 
+                      onClick={() => setDeleteId(receipt.id)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 active:scale-95 transition-all"
+                    >
+                      <Trash2 size={13} /> Padam
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -253,6 +288,87 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
                 {isSaving ? <Loader2 className="animate-spin" size={18}/> : 'Simpan Kemaskini'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Image Preview Modal */}
+      {previewReceipt && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800 font-mono">
+                  {previewReceipt.receiptNumber}
+                </h3>
+                <p className="text-xs text-slate-400 font-medium truncate max-w-[200px]">
+                  {previewReceipt.payerName || 'Pembayar Zakat'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setPreviewReceipt(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 active:scale-90 transition-all"
+                aria-label="Tutup"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Receipt Image Display */}
+            <div className="my-3 flex-1 overflow-auto rounded-2xl border border-slate-200 bg-slate-950 flex items-center justify-center min-h-[260px] max-h-[50vh] relative group">
+              <img 
+                src={previewReceipt.imageUrl} 
+                alt={`Resit ${previewReceipt.receiptNumber}`}
+                className="w-full h-auto max-h-[50vh] object-contain rounded-xl"
+              />
+            </div>
+
+            {/* Ringkasan Maklumat */}
+            <div className="bg-slate-50 rounded-2xl p-3 text-xs space-y-1.5 mb-3 border border-slate-100">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Jenis Zakat:</span>
+                <span className="font-bold text-slate-700">{previewReceipt.riceType?.name || previewReceipt.zakatType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Jumlah Bayaran:</span>
+                <span className="font-black text-teal-700 text-sm">${previewReceipt.totalAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Tarikh:</span>
+                <span className="font-semibold text-slate-600">
+                  {new Date(previewReceipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons: Buka Penuh & Muat Turun */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const win = window.open();
+                  if (win) {
+                    win.document.write(`<title>Resit ${previewReceipt.receiptNumber}</title><body style="margin:0;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="${previewReceipt.imageUrl}" style="max-width:100%;height:auto;border-radius:8px;" /></body>`);
+                  }
+                }}
+                className="w-1/2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs active:scale-95 transition-all flex items-center justify-center gap-1.5"
+              >
+                <ExternalLink size={14} />
+                <span>Buka Imej</span>
+              </button>
+
+              <a
+                href={previewReceipt.imageUrl}
+                download={`Resit_${previewReceipt.receiptNumber.replace(/\s+/g, '_')}.jpg`}
+                className="w-1/2 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-md shadow-teal-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 text-center"
+              >
+                <Download size={14} />
+                <span>Muat Turun</span>
+              </a>
+            </div>
+
           </div>
         </div>
       )}
