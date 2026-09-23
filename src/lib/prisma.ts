@@ -6,11 +6,14 @@ let client: PrismaClient | null = null;
 
 function getClient(): PrismaClient {
   if (!client) {
-    const connectionString = process.env.DATABASE_URL;
+    const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
     if (!connectionString) {
-      throw new Error(`DATABASE_URL is missing in environment! Available keys: ${Object.keys(process.env).join(', ')}`);
+      throw new Error(`DATABASE_URL / DIRECT_URL is missing in environment! Available keys: ${Object.keys(process.env).join(', ')}`);
     }
-    const pool = new Pool({ connectionString });
+    const pool = new Pool({ 
+      connectionString,
+      ssl: { rejectUnauthorized: false }
+    });
     const adapter = new PrismaPg(pool);
     client = new PrismaClient({ adapter });
   }
