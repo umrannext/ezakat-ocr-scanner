@@ -12,10 +12,12 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^5.22.0",
     "@prisma/client": "^5.22.0",
     "browser-image-compression": "^2.0.2",
     "lucide-react": "^1.34.0",
     "next": "16.3.3",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-webcam": "^7.2.0",
@@ -25,6 +27,7 @@
     "@opennextjs/cloudflare": "^1.20.6",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "esbuild": "^0.28.2",

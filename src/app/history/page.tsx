@@ -1,10 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { FileText } from 'lucide-react';
 import HistoryClient from '@/components/HistoryClient';
 
-const prisma = new PrismaClient();
+
 
 export default async function HistoryPage() {
   const cookieStore = await cookies();

@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AmilDirectoryClient from '@/components/AmilDirectoryClient';
 
-const prisma = new PrismaClient();
+
 
 export default async function AmilsPage() {
   const cookieStore = await cookies();

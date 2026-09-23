@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 const hashPassword = (password: string) => {
   return crypto.createHash('sha256').update(password).digest('hex');
 };

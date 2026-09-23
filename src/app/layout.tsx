@@ -3,10 +3,10 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import { cookies } from "next/headers";
-import { PrismaClient } from "@prisma/client";
+import prisma from '@/lib/prisma';
 
 const font = Outfit({ subsets: ["latin"] });
-const prisma = new PrismaClient();
+
 
 export const metadata: Metadata = {
   title: "Sistem OCR Resit Zakat Fitrah",
