@@ -30,20 +30,10 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error: any) {
-    console.error(error);
-    let dbTarget = 'unknown';
-    try {
-      const raw = (process.env.DATABASE_URL || '').trim().replace(/^["']|["']$/g, '');
-      const u = new URL(raw);
-      dbTarget = `${u.hostname}:${u.port} (user: ${u.username})`;
-    } catch (e: any) {
-      dbTarget = `PARSE_ERROR: ${e.message}`;
-    }
+    console.error('Auth error:', error);
     return NextResponse.json({ 
       error: 'Ralat pelayan', 
-      details: error?.message || String(error),
-      dbTarget,
-      stack: error?.stack 
+      details: error?.message || 'Sila cuba sebentar lagi'
     }, { status: 500 });
   }
 }
