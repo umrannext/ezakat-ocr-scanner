@@ -16,6 +16,9 @@ export default function ScanPage() {
 
   // Pilihan Mod: 'camera' (Imbas Terus dari Kamera) | 'gallery' (Pilih & Selaras dari Galeri)
   const [scanMode, setScanMode] = useState<'camera' | 'gallery'>('camera');
+  // Pilihan Jenis Resit: 'FITRAH' (Potret, DW/CS) | 'HARTA' (Lanskap, 5-Angka Merah)
+  const [receiptType, setReceiptType] = useState<'FITRAH' | 'HARTA'>('FITRAH');
+  const [cropOrientation, setCropOrientation] = useState<'PORTRAIT' | 'LANDSCAPE'>('PORTRAIT');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [mounted, setMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,7 +48,7 @@ export default function ScanPage() {
     if (!imageSrc) return;
 
     setIsProcessing(true);
-    setProcessingMsg('Mengimbas resit terus dari kamera...');
+    setProcessingMsg(`Mengimbas resit zakat ${receiptType === 'HARTA' ? 'harta' : 'fitrah'} terus dari kamera...`);
 
     try {
       const res = await fetch(imageSrc);
@@ -61,15 +64,17 @@ export default function ScanPage() {
       reader.onloadend = () => {
         const finalBase64 = reader.result as string;
         sessionStorage.setItem('scannedImage', finalBase64);
+        sessionStorage.setItem('scanReceiptType', receiptType);
         router.push('/review');
       };
       reader.readAsDataURL(compressed);
     } catch (err) {
       console.error("Ralat tangkap kamera terus:", err);
       sessionStorage.setItem('scannedImage', imageSrc);
+      sessionStorage.setItem('scanReceiptType', receiptType);
       router.push('/review');
     }
-  }, [webcamRef, router]);
+  }, [webcamRef, router, receiptType]);
 
   // Tukar Kamera Depan / Belakang
   const toggleCamera = () => {
@@ -90,8 +95,15 @@ export default function ScanPage() {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      setAdjustImage(dataUrl);
-      setScanMode('gallery');
+      const testImg = new Image();
+      testImg.src = dataUrl;
+      testImg.onload = () => {
+        const isLandscape = testImg.naturalWidth > testImg.naturalHeight * 1.15;
+        setCropOrientation(isLandscape ? 'LANDSCAPE' : 'PORTRAIT');
+        setReceiptType(isLandscape ? 'HARTA' : 'FITRAH');
+        setAdjustImage(dataUrl);
+        setScanMode('gallery');
+      };
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -106,7 +118,7 @@ export default function ScanPage() {
     img.onload = () => {
       const frame = containerRef.current;
       const fw = frame ? frame.clientWidth : 320;
-      const fh = frame ? frame.clientHeight : 420;
+      const fh = frame ? frame.clientHeight : (cropOrientation === 'LANDSCAPE' ? 220 : 420);
 
       const scale = Math.min(fw / img.naturalWidth, fh / img.naturalHeight);
       setImgSize({
@@ -117,7 +129,7 @@ export default function ScanPage() {
       setPan({ x: 0, y: 0 });
       setRotation(0);
     };
-  }, [adjustImage]);
+  }, [adjustImage, cropOrientation]);
 
   // Pengendali Sentuh / Tetikus untuk Gerakkan (Pan) Imej
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -155,7 +167,7 @@ export default function ScanPage() {
   const processGalleryAndProceed = async () => {
     if (!adjustImage) return;
     setIsProcessing(true);
-    setProcessingMsg('Memotong dan memproses resit...');
+    setProcessingMsg(`Memotong dan memproses resit zakat ${receiptType === 'HARTA' ? 'harta' : 'fitrah'}...`);
 
     try {
       const img = new Image();
@@ -171,7 +183,7 @@ export default function ScanPage() {
 
       const frame = containerRef.current;
       const frameW = frame ? frame.clientWidth : 320;
-      const frameH = frame ? frame.clientHeight : 420;
+      const frameH = frame ? frame.clientHeight : (cropOrientation === 'LANDSCAPE' ? 220 : 420);
 
       // Resolusi kanvas tinggi untuk mengekalkan kejelasan OCR
       const exportW = 1000;
@@ -213,6 +225,7 @@ export default function ScanPage() {
       reader.onloadend = () => {
         const finalBase64 = reader.result as string;
         sessionStorage.setItem('scannedImage', finalBase64);
+        sessionStorage.setItem('scanReceiptType', receiptType);
         router.push('/review');
       };
       reader.readAsDataURL(compressed);
@@ -239,8 +252,8 @@ export default function ScanPage() {
       {isProcessing && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6 text-center">
           <div className="relative mb-4">
-            <div className="absolute inset-0 bg-teal-500 rounded-full blur-xl opacity-30 animate-pulse"></div>
-            <Loader2 className="animate-spin text-teal-400 relative z-10" size={54} />
+            <div className={`absolute inset-0 ${receiptType === 'HARTA' ? 'bg-amber-500' : 'bg-teal-500'} rounded-full blur-xl opacity-30 animate-pulse`}></div>
+            <Loader2 className={`animate-spin ${receiptType === 'HARTA' ? 'text-amber-400' : 'text-teal-400'} relative z-10`} size={54} />
           </div>
           <h3 className="text-white font-bold text-lg">{processingMsg}</h3>
           <p className="text-slate-400 text-xs mt-1.5">Sila tunggu sebentar...</p>
@@ -263,21 +276,42 @@ export default function ScanPage() {
             </button>
             <div className="text-center">
               <h2 className="text-white font-bold text-sm tracking-wide">Penyelarasan Resit Galeri</h2>
-              <p className="text-[11px] text-teal-400 font-medium">Ubah posisi & saiz resit di dalam petak</p>
+              <p className="text-[11px] text-teal-400 font-medium">
+                {cropOrientation === 'LANDSCAPE' ? 'Format Memanjang (Zakat Harta)' : 'Format Potret (Zakat Fitrah)'}
+              </p>
             </div>
-            <button 
-              onClick={resetAdjust}
-              className="text-xs font-bold text-slate-300 hover:text-white px-2.5 py-1 bg-white/10 rounded-lg active:scale-95 transition-all"
-            >
-              Reset
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={() => {
+                  const next = cropOrientation === 'LANDSCAPE' ? 'PORTRAIT' : 'LANDSCAPE';
+                  setCropOrientation(next);
+                  setReceiptType(next === 'LANDSCAPE' ? 'HARTA' : 'FITRAH');
+                }}
+                className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition-all ${
+                  cropOrientation === 'LANDSCAPE' 
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
+                    : 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+                }`}
+                title="Tukar antara Lanskap dan Potret"
+              >
+                {cropOrientation === 'LANDSCAPE' ? '🪙 Lanskap' : '🌾 Potret'}
+              </button>
+              <button 
+                onClick={resetAdjust}
+                className="text-xs font-bold text-slate-300 hover:text-white px-2.5 py-1 bg-white/10 rounded-lg active:scale-95 transition-all"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
           {/* Viewport Petak Imbas */}
           <div className="flex-1 flex items-center justify-center py-2 relative overflow-hidden">
             <div 
               ref={containerRef}
-              className="w-[88%] max-w-[340px] aspect-[3/4] rounded-2xl overflow-hidden relative border-2 border-teal-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] flex items-center justify-center bg-black/90 cursor-grab active:cursor-grabbing touch-none"
+              className={`rounded-2xl overflow-hidden relative border-2 ${
+                cropOrientation === 'LANDSCAPE' ? 'border-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.8)] w-[94%] max-w-[440px] aspect-[16/9]' : 'border-teal-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] w-[88%] max-w-[340px] aspect-[3/4]'
+              } flex items-center justify-center bg-black/90 cursor-grab active:cursor-grabbing touch-none transition-all duration-200`}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -300,7 +334,7 @@ export default function ScanPage() {
               )}
 
               {/* Grid Panduan Garisan Halus */}
-              <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 border border-teal-400/20">
+              <div className={`absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 border ${cropOrientation === 'LANDSCAPE' ? 'border-amber-400/20' : 'border-teal-400/20'}`}>
                 <div className="border-r border-b border-white/15"></div>
                 <div className="border-r border-b border-white/15"></div>
                 <div className="border-b border-white/15"></div>
@@ -313,12 +347,21 @@ export default function ScanPage() {
               </div>
 
               {/* Bucu Neon Futuristik */}
-              <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-teal-400 rounded-tl-xl pointer-events-none"></div>
-              <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-teal-400 rounded-tr-xl pointer-events-none"></div>
-              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-teal-400 rounded-bl-xl pointer-events-none"></div>
-              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-teal-400 rounded-br-xl pointer-events-none"></div>
+              <div className={`absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 ${cropOrientation === 'LANDSCAPE' ? 'border-amber-400' : 'border-teal-400'} rounded-tl-xl pointer-events-none`}></div>
+              <div className={`absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 ${cropOrientation === 'LANDSCAPE' ? 'border-amber-400' : 'border-teal-400'} rounded-tr-xl pointer-events-none`}></div>
+              <div className={`absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 ${cropOrientation === 'LANDSCAPE' ? 'border-amber-400' : 'border-teal-400'} rounded-bl-xl pointer-events-none`}></div>
+              <div className={`absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 ${cropOrientation === 'LANDSCAPE' ? 'border-amber-400' : 'border-teal-400'} rounded-br-xl pointer-events-none`}></div>
+
+              {/* Petunjuk Sudut Atas Kanan: 5 Angka Merah jika Lanskap (Zakat Harta) */}
+              {cropOrientation === 'LANDSCAPE' && (
+                <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300 shadow-md pointer-events-none z-10 backdrop-blur-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                  <span>5 Angka Merah (Top-Right)</span>
+                </div>
+              )}
             </div>
           </div>
+
 
           {/* Toolbar Pelarasan: Zum, Putar & Panduan */}
           <div className="w-full max-w-sm mx-auto space-y-3 pb-2">
@@ -445,6 +488,32 @@ export default function ScanPage() {
                 <span>Dari Galeri</span>
               </button>
             </div>
+            {/* TOGGLE PILIHAN JENIS ZAKAT: FITRAH (POTRET) VS HARTA (LANSKAP) */}
+            <div className="flex bg-black/40 p-1 rounded-2xl backdrop-blur-md border border-white/15 max-w-xs mx-auto w-full">
+              <button
+                type="button"
+                onClick={() => setReceiptType('FITRAH')}
+                className={`flex-1 py-1.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                  receiptType === 'FITRAH'
+                    ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>🌾 Fitrah (Potret)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReceiptType('HARTA')}
+                className={`flex-1 py-1.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                  receiptType === 'HARTA'
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>🪙 Harta (Lanskap)</span>
+              </button>
+            </div>
           </div>
 
           {/* Area Kamera Langsung dengan Petak Panduan Luas */}
@@ -456,7 +525,7 @@ export default function ScanPage() {
                 screenshotFormat="image/jpeg"
                 videoConstraints={{
                   facingMode: facingMode,
-                  aspectRatio: 3 / 4,
+                  aspectRatio: receiptType === 'HARTA' ? 16 / 9 : 3 / 4,
                   width: { ideal: 1280 },
                   height: { ideal: 960 }
                 }}
@@ -469,23 +538,39 @@ export default function ScanPage() {
               </div>
             )}
             
-            {/* Petak Imbas Luas (Sempadan Ditolak ke Tepi) */}
+            {/* Petak Imbas Luas (Menyesuaikan Fitrah Potret vs Harta Lanskap) */}
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
-              <div className="w-[88%] max-w-[340px] aspect-[3/4] border-2 border-teal-400/70 rounded-3xl relative flex items-center justify-center shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+              <div className={`relative flex items-center justify-center transition-all duration-300 ${
+                receiptType === 'HARTA'
+                  ? 'w-[94%] max-w-[440px] aspect-[16/9] border-2 border-amber-400/90 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.65)]'
+                  : 'w-[88%] max-w-[340px] aspect-[3/4] border-2 border-teal-400/70 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
+              }`}>
                 
                 {/* Hiasan Bucu Neon */}
-                <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-teal-400 rounded-tl-2xl"></div>
-                <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-teal-400 rounded-tr-2xl"></div>
-                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-teal-400 rounded-bl-2xl"></div>
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-teal-400 rounded-br-2xl"></div>
+                <div className={`absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 rounded-tl-2xl ${receiptType === 'HARTA' ? 'border-amber-400' : 'border-teal-400'}`}></div>
+                <div className={`absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 rounded-tr-2xl ${receiptType === 'HARTA' ? 'border-amber-400' : 'border-teal-400'}`}></div>
+                <div className={`absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 rounded-bl-2xl ${receiptType === 'HARTA' ? 'border-amber-400' : 'border-teal-400'}`}></div>
+                <div className={`absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 rounded-br-2xl ${receiptType === 'HARTA' ? 'border-amber-400' : 'border-teal-400'}`}></div>
                 
+                {/* Indikator Sudut Atas Kanan: 5 Angka Merah bagi Zakat Harta */}
+                {receiptType === 'HARTA' && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-red-600/95 text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-red-300 shadow-xl backdrop-blur-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                    <span>5 Angka Merah (Top-Right)</span>
+                  </div>
+                )}
+
                 {/* Animasi Garisan Pengimbas */}
-                <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-teal-400 to-transparent shadow-[0_0_10px_2px_rgba(45,212,191,0.9)] animate-[scan_2.5s_ease-in-out_infinite]"></div>
+                <div className={`absolute top-0 w-full h-1 bg-gradient-to-r from-transparent ${
+                  receiptType === 'HARTA' ? 'via-amber-400 shadow-[0_0_12px_2px_rgba(251,191,36,0.9)]' : 'via-teal-400 shadow-[0_0_10px_2px_rgba(45,212,191,0.9)]'
+                } to-transparent animate-[scan_2.5s_ease-in-out_infinite]`}></div>
               </div>
 
               {/* Arahan Ringkas & Jelas */}
-              <p className="text-white text-xs font-semibold bg-black/60 px-4 py-2 rounded-full absolute bottom-[18%] shadow-lg border border-white/15 backdrop-blur-md">
-                Halakan ke resit & tekan butang untuk imbas terus
+              <p className="text-white text-xs font-semibold bg-black/70 px-4 py-2 rounded-full absolute bottom-[16%] shadow-lg border border-white/15 backdrop-blur-md text-center max-w-[85%]">
+                {receiptType === 'HARTA'
+                  ? 'Halakan resit zakat harta memanjang. Pastikan nombor 5-angka merah di atas kanan berada dalam petak.'
+                  : 'Halakan resit zakat fitrah. Pastikan kod DW/CS dan nombor 6-angka berada dalam petak.'}
               </p>
             </div>
           </div>
@@ -513,8 +598,12 @@ export default function ScanPage() {
               className="w-20 h-20 rounded-full bg-white/20 p-1.5 backdrop-blur-md active:scale-90 transition-transform shadow-2xl border border-white/30 flex items-center justify-center group"
               aria-label="Ambil & Imbas Terus"
             >
-              <div className="w-full h-full rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 group-hover:from-teal-400 group-hover:to-emerald-300 flex items-center justify-center shadow-inner transition-all">
-                <Camera size={34} className="text-white drop-shadow" />
+              <div className={`w-full h-full rounded-full ${
+                receiptType === 'HARTA'
+                  ? 'bg-gradient-to-tr from-amber-500 to-yellow-400 group-hover:from-amber-400 group-hover:to-yellow-300'
+                  : 'bg-gradient-to-tr from-teal-500 to-emerald-400 group-hover:from-teal-400 group-hover:to-emerald-300'
+              } flex items-center justify-center shadow-inner transition-all`}>
+                <Camera size={34} className={receiptType === 'HARTA' ? 'text-slate-950 drop-shadow' : 'text-white drop-shadow'} />
               </div>
             </button>
 
@@ -530,6 +619,7 @@ export default function ScanPage() {
               <span className="text-[11px] font-bold tracking-tight">Tukar</span>
             </button>
           </div>
+
         </div>
       )}
     </div>

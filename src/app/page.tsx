@@ -88,7 +88,7 @@ export default async function Home() {
             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight leading-tight">
               Sistem OCR <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-500">
-                Resit Zakat Fitrah
+                Resit Zakat Brunei
               </span>
             </h1>
           </div>
@@ -180,32 +180,59 @@ export default async function Home() {
               <p className="text-slate-400 text-xs mt-2 font-medium">Sila imbas resit zakat fitrah pertama anda.</p>
             </div>
           ) : (
-            receipts.map((receipt) => (
-              <div key={receipt.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/50 flex justify-between items-center group hover:shadow-md transition-shadow">
-                <div className="flex gap-4 items-center">
-                  <div className="bg-slate-50 p-3 rounded-xl group-hover:bg-teal-50 transition-colors">
-                    <FileText size={20} className="text-slate-400 group-hover:text-teal-500 transition-colors" />
+            receipts.map((receipt) => {
+              const isHarta = receipt.zakatType === 'HARTA';
+              return (
+                <div key={receipt.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/50 flex justify-between items-center group hover:shadow-md transition-shadow">
+                  <div className="flex gap-4 items-center">
+                    <div className={`p-3 rounded-xl transition-colors ${
+                      isHarta ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-500'
+                    }`}>
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-800 text-sm">{receipt.payerName}</p>
+                        {isHarta && (
+                          <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-300">
+                            HARTA
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 font-medium tracking-wide">
+                        No. Resit: <span className={`font-mono font-bold ${isHarta ? 'text-red-600' : 'text-slate-600'}`}>{receipt.receiptNumber}</span>
+                        {isHarta ? (
+                          <>
+                            <span className="mx-1.5 text-slate-300">•</span>
+                            <span className="text-amber-700 font-bold">5-Angka Merah</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="mx-1.5 text-slate-300">•</span>
+                            <span className="text-teal-600 font-bold">{receipt.dependents}</span> Tanggungan
+                          </>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-800 text-sm">{receipt.payerName}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium tracking-wide">
-                      No. Resit: <span className="text-slate-600">{receipt.receiptNumber}</span>
-                      <span className="mx-1.5 text-slate-300">•</span>
-                      <span className="text-teal-600 font-bold">{receipt.dependents}</span> Tanggungan
+                  <div className="text-right flex flex-col items-end">
+                    <span className={`inline-block text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm ${
+                      isHarta
+                        ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 text-amber-800'
+                        : 'bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700'
+                    }`}>
+                      {isHarta ? 'Zakat Harta' : (receipt.riceType?.name || 'Zakat Fitrah')}
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium tracking-wide">
+                      {new Date(receipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    <p className={`text-xs font-black mt-1 ${isHarta ? 'text-amber-800' : 'text-teal-600'}`}>
+                      ${receipt.totalAmount.toFixed(2)}
                     </p>
                   </div>
                 </div>
-                <div className="text-right flex flex-col items-end">
-                  <span className="inline-block bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
-                    {receipt.riceType?.name || receipt.zakatType || 'Zakat'}
-                  </span>
-                  <p className="text-[10px] text-slate-400 mt-2 font-medium tracking-wide">
-                    {new Date(receipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                  <p className="text-xs font-black text-teal-600 mt-1">${receipt.totalAmount.toFixed(2)}</p>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </section>

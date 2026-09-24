@@ -90,8 +90,12 @@ export default function HistoryClient({
     if (!editData) return;
     setIsSaving(true);
     
-    // Auto-calculate new total based on modified dependents
-    const newTotal = (1 + editData.dependents) * editData.riceType.price;
+    // Auto-calculate new total based on modified dependents for FITRAH, or keep amount for HARTA
+    const isHarta = editData.zakatType === 'HARTA';
+    const ricePrice = editData.riceType?.price || 1.93;
+    const newTotal = isHarta
+      ? (parseFloat(editData.totalAmount) || 0)
+      : (1 + editData.dependents) * ricePrice;
     
     try {
       const res = await fetch(`/api/receipts/${editData.id}`, {
@@ -100,7 +104,7 @@ export default function HistoryClient({
         body: JSON.stringify({
           payerName: editData.payerName,
           receiptNumber: editData.receiptNumber,
-          dependents: editData.dependents,
+          dependents: isHarta ? 0 : editData.dependents,
           totalAmount: newTotal
         })
       });
@@ -212,51 +216,74 @@ export default function HistoryClient({
             <p className="text-slate-400 text-xs mt-2 font-medium">Cuba gunakan kata kunci carian lain.</p>
           </div>
         ) : (
-          filtered.map((receipt) => (
-            <div key={receipt.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/50 relative group transition-shadow hover:shadow-md">
-              <div className="flex justify-between items-start">
-                <div className="flex gap-3.5 items-center overflow-hidden">
-                  {receipt.imageUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => setPreviewReceipt(receipt)}
-                      className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-200 relative group/thumb shadow-xs active:scale-95 transition-transform bg-slate-900"
-                      title="Klik untuk lihat gambar resit asal"
-                    >
-                      <img src={receipt.imageUrl} alt="Resit" className="w-full h-full object-cover opacity-90 group-hover/thumb:opacity-100 transition-opacity" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
-                        <Eye size={16} className="text-white drop-shadow" />
+          filtered.map((receipt) => {
+            const isHarta = receipt.zakatType === 'HARTA';
+            return (
+              <div key={receipt.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/50 relative group transition-shadow hover:shadow-md">
+                <div className="flex justify-between items-start">
+                  <div className="flex gap-3.5 items-center overflow-hidden">
+                    {receipt.imageUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewReceipt(receipt)}
+                        className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-200 relative group/thumb shadow-xs active:scale-95 transition-transform bg-slate-900"
+                        title="Klik untuk lihat gambar resit asal"
+                      >
+                        <img src={receipt.imageUrl} alt="Resit" className="w-full h-full object-cover opacity-90 group-hover/thumb:opacity-100 transition-opacity" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye size={16} className="text-white drop-shadow" />
+                        </div>
+                      </button>
+                    ) : (
+                      <div className={`p-3 rounded-xl shrink-0 transition-colors ${
+                        isHarta ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-500'
+                      }`}>
+                        <FileText size={20} />
                       </div>
-                    </button>
-                  ) : (
-                    <div className="bg-slate-50 p-3 rounded-xl shrink-0 group-hover:bg-teal-50 transition-colors">
-                      <FileText size={20} className="text-slate-400 group-hover:text-teal-500 transition-colors" />
-                    </div>
-                  )}
-                  <div className="overflow-hidden">
-                    <p className="font-bold text-slate-800 text-sm truncate pr-2">{receipt.payerName || 'Pembayar Zakat'}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5 font-medium tracking-wide flex items-center gap-1.5 flex-wrap">
-                      <span className="text-slate-700 font-bold whitespace-nowrap font-mono">{receipt.receiptNumber}</span>
-                      <span className="text-slate-300">•</span>
-                      <span className="whitespace-nowrap"><span className="text-teal-600 font-bold">{receipt.dependents === 0 ? 'Tiada' : receipt.dependents}</span> Tgn</span>
-                    </p>
-                    {userRole === 'ADMIN' && receipt.amil && (
-                      <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest bg-slate-50 inline-block px-1.5 py-0.5 rounded border border-slate-100">
-                        {receipt.amil.loginId}
-                      </p>
                     )}
+                    <div className="overflow-hidden">
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-bold text-slate-800 text-sm truncate pr-2">{receipt.payerName || 'Pembayar Zakat'}</p>
+                        {isHarta && (
+                          <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-300 shrink-0">
+                            HARTA
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 font-medium tracking-wide flex items-center gap-1.5 flex-wrap">
+                        <span className={`font-bold whitespace-nowrap font-mono ${isHarta ? 'text-red-600' : 'text-slate-700'}`}>
+                          {receipt.receiptNumber}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        {isHarta ? (
+                          <span className="text-amber-800 font-bold text-[10px]">5-Angka Merah</span>
+                        ) : (
+                          <span className="whitespace-nowrap"><span className="text-teal-600 font-bold">{receipt.dependents === 0 ? 'Tiada' : receipt.dependents}</span> Tgn</span>
+                        )}
+                      </p>
+                      {userRole === 'ADMIN' && receipt.amil && (
+                        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest bg-slate-50 inline-block px-1.5 py-0.5 rounded border border-slate-100">
+                          {receipt.amil.loginId}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right flex flex-col items-end shrink-0 ml-2">
+                    <span className={`inline-block text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm ${
+                      isHarta
+                        ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 text-amber-800'
+                        : 'bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700'
+                    }`}>
+                      {isHarta ? 'Zakat Harta' : (receipt.riceType?.name || 'Zakat Fitrah')}
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium tracking-wide">
+                      {new Date(receipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    <p className={`text-xs font-black mt-1 ${isHarta ? 'text-amber-800' : 'text-teal-600'}`}>
+                      ${receipt.totalAmount.toFixed(2)}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right flex flex-col items-end shrink-0 ml-2">
-                  <span className="inline-block bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
-                    {receipt.riceType?.name || receipt.zakatType}
-                  </span>
-                  <p className="text-[10px] text-slate-400 mt-2 font-medium tracking-wide">
-                    {new Date(receipt.paymentDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                  <p className="text-xs font-black text-teal-600 mt-1">${receipt.totalAmount.toFixed(2)}</p>
-                </div>
-              </div>
               
               {/* Footer Tindakan: Lihat Resit & Edit/Padam */}
               <div className="mt-3.5 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
@@ -291,7 +318,8 @@ export default function HistoryClient({
                 )}
               </div>
             </div>
-          ))
+          );
+        })
         )}
       </div>
 
@@ -344,26 +372,47 @@ export default function HistoryClient({
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-teal-500"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Bil. Tanggungan</label>
-                <select 
-                  value={editData.dependents}
-                  onChange={e => setEditData({...editData, dependents: parseInt(e.target.value)})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-teal-500"
-                >
-                  {[...Array(21)].map((_, i) => (
-                    <option key={i} value={i}>{i === 0 ? "Tiada Tanggungan" : `${i} Orang`}</option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-teal-600 font-medium ml-1 mt-1">*Jumlah keseluruhan akan dikira semula secara automatik.</p>
-              </div>
+              {editData.zakatType === 'HARTA' ? (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-amber-800 uppercase tracking-widest ml-1">Jumlah Bayaran Zakat Harta ($)</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editData.totalAmount}
+                    onChange={e => setEditData({...editData, totalAmount: e.target.value})}
+                    className="w-full bg-amber-50/50 border border-amber-300 rounded-xl px-4 py-3 text-base font-black text-amber-950 outline-none focus:border-amber-500"
+                  />
+                  <p className="text-[10px] text-amber-700 font-medium ml-1 mt-1">*Resit Zakat Harta (5-Angka) tidak mempunyai tanggungan.</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Bil. Tanggungan</label>
+                  <select 
+                    value={editData.dependents}
+                    onChange={e => setEditData({...editData, dependents: parseInt(e.target.value)})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-teal-500"
+                  >
+                    {[...Array(21)].map((_, i) => (
+                      <option key={i} value={i}>{i === 0 ? "Tiada Tanggungan" : `${i} Orang`}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-teal-600 font-medium ml-1 mt-1">*Jumlah keseluruhan akan dikira semula secara automatik.</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-100 flex gap-3">
               <button onClick={() => setEditData(null)} className="w-1/3 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active:scale-95">
                 Batal
               </button>
-              <button onClick={handleEditSave} disabled={isSaving} className="w-2/3 bg-teal-600 text-white font-bold py-3.5 rounded-xl shadow-lg flex justify-center items-center gap-2 active:scale-95">
+              <button 
+                onClick={handleEditSave} 
+                disabled={isSaving} 
+                className={`w-2/3 font-bold py-3.5 rounded-xl shadow-lg flex justify-center items-center gap-2 active:scale-95 ${
+                  editData.zakatType === 'HARTA' ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black' : 'bg-teal-600 text-white'
+                }`}
+              >
                 {isSaving ? <Loader2 className="animate-spin" size={18}/> : 'Simpan Kemaskini'}
               </button>
             </div>
@@ -379,7 +428,7 @@ export default function HistoryClient({
             {/* Modal Header */}
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-extrabold text-slate-800 font-mono">
+                <h3 className={`text-base font-extrabold font-mono ${previewReceipt.zakatType === 'HARTA' ? 'text-red-600' : 'text-slate-800'}`}>
                   {previewReceipt.receiptNumber}
                 </h3>
                 <p className="text-xs text-slate-400 font-medium truncate max-w-[200px]">
@@ -408,11 +457,15 @@ export default function HistoryClient({
             <div className="bg-slate-50 rounded-2xl p-3 text-xs space-y-1.5 mb-3 border border-slate-100">
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Jenis Zakat:</span>
-                <span className="font-bold text-slate-700">{previewReceipt.riceType?.name || previewReceipt.zakatType}</span>
+                <span className="font-bold text-slate-700">
+                  {previewReceipt.zakatType === 'HARTA' ? 'Zakat Harta' : (previewReceipt.riceType?.name || 'Zakat Fitrah')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Jumlah Bayaran:</span>
-                <span className="font-black text-teal-700 text-sm">${previewReceipt.totalAmount.toFixed(2)}</span>
+                <span className={`font-black text-sm ${previewReceipt.zakatType === 'HARTA' ? 'text-amber-800' : 'text-teal-700'}`}>
+                  ${previewReceipt.totalAmount.toFixed(2)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Tarikh:</span>

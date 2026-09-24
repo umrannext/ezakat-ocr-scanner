@@ -32,10 +32,11 @@ export async function GET() {
     // Generate CSV
     const headers = [
       'No. Resit',
+      'Jenis Zakat',
       'Tarikh',
       'Nama Pembayar',
       'No. K/P',
-      'Kategori Beras',
+      'Kategori Beras / Harta',
       'Tanggungan',
       'Jumlah Zakat ($)',
       'Nama Amil',
@@ -46,11 +47,12 @@ export async function GET() {
 
     const rows = receipts.map(r => [
       r.receiptNumber,
+      r.zakatType === 'HARTA' ? 'Zakat Harta' : 'Zakat Fitrah',
       new Date(r.paymentDate).toLocaleDateString('ms-MY'),
       `"${r.payerName}"`, // Quote strings that might have commas
       r.payerIcNumber || '-',
-      r.riceType?.name || r.zakatType || '-',
-      r.dependents.toString(),
+      r.zakatType === 'HARTA' ? 'Harta' : (r.riceType?.name || '-'),
+      r.zakatType === 'HARTA' ? '-' : r.dependents.toString(),
       r.totalAmount.toFixed(2),
       `"${r.amil.name}"`,
       r.amil.loginId,
