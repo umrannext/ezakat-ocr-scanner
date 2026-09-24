@@ -22,7 +22,7 @@ export default async function InfoPage() {
             </Link>
           )}
           <div>
-            <h1 className="font-bold text-slate-800 tracking-tight text-lg">Info &amp; Dalil Sistem</h1>
+            <h1 className="font-bold text-slate-800 tracking-tight text-lg">Info &amp; Panduan</h1>
             <p className="text-[11px] text-teal-600 font-semibold">Sistem OCR Resit Zakat Fitrah &amp; Harta</p>
           </div>
         </div>
@@ -31,7 +31,7 @@ export default async function InfoPage() {
       <div className="p-5 space-y-6">
         
         {/* ============================================================== */}
-        {/* 1. DALIL KEWAJIPAN ZAKAT (AL-QURAN & HADIS SAHIH DENGAN NOMBOR)*/}
+        {/* 1. DALIL KEWAJIPAN ZAKAT (SURAH AT-TAUBAH AYAT 103)            */}
         {/* ============================================================== */}
         <section className="bg-gradient-to-br from-teal-800 via-teal-900 to-emerald-950 rounded-3xl p-6 shadow-xl text-white relative overflow-hidden">
           <div className="absolute -top-6 -right-6 opacity-10 pointer-events-none">
@@ -43,14 +43,14 @@ export default async function InfoPage() {
               <BookOpen size={20} />
             </span>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-teal-300 block">Kalamullah &amp; As-Sunnah</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-teal-300 block">Kalam Ilahi</span>
               <h2 className="text-lg font-black tracking-tight">Dalil Kewajipan Zakat</h2>
             </div>
           </div>
 
           <div className="space-y-4 text-xs leading-relaxed">
             
-            {/* Ayat Surah At-Taubah */}
+            {/* Ayat Surah At-Taubah 103 */}
             <div className="bg-white/10 rounded-2xl p-4 border border-white/15 backdrop-blur-xs space-y-2">
               <div className="flex justify-between items-center text-[11px] font-bold text-teal-200 border-b border-white/10 pb-1.5">
                 <span>Surah At-Taubah : Ayat 103</span>
@@ -61,41 +61,6 @@ export default async function InfoPage() {
               </p>
               <p className="text-slate-200 text-[11px] italic font-medium pt-1">
                 &ldquo;Ambillah zakat daripada sebahagian harta mereka, dengan zakat itu kamu membersihkan dan mensucikan mereka dan doakanlah untuk mereka. Sesungguhnya doa kamu itu (menjadi) ketenteraman jiwa bagi mereka. Dan Allah Maha Mendengar lagi Maha Mengetahui.&rdquo;
-              </p>
-            </div>
-
-            {/* Hadis Sahih Zakat Fitrah */}
-            <div className="bg-white/10 rounded-2xl p-4 border border-white/15 backdrop-blur-xs space-y-2">
-              <div className="flex justify-between items-center text-[11px] font-bold text-teal-200 border-b border-white/10 pb-1.5 flex-wrap gap-1">
-                <span>Hadis Sahih Zakat Fitrah</span>
-                <span className="text-[10px] bg-emerald-500/40 text-emerald-100 px-2 py-0.5 rounded-full font-bold">
-                  Bukhari No. 1503 • Muslim No. 984
-                </span>
-              </div>
-              <p className="text-right font-serif text-base leading-loose text-teal-50 pt-1">
-                عَنْ ابْنِ عُمَرَ رَضِيَ اللَّهُ عَنْهُمَا قَالَ: «فَرَضَ رَسُولُ اللَّهِ ﷺ زَكَاةَ الْفِطْرِ صَاعًا مِنْ تَمْرٍ أَوْ صَاعًا مِنْ شَعِيرٍ عَلَى الْعَبْدِ وَالْحُرِّ وَالذَّكَرِ وَالأُنْثَى وَالصَّغِيرِ وَالْكَبِيرِ مِنْ الْمُسْلِمِينَ، وَأَمَرَ بِهَا أَنْ تُؤَدَّى قَبْلَ خُرُوجِ النَّاسِ إِلَى الصَّلَاةِ»
-              </p>
-              <p className="text-slate-200 text-[11px] italic font-medium pt-1">
-                Dari Sayyidina Ibnu Umar r.a. berkata: &ldquo;Rasulullah ﷺ telah memfardhukan zakat fitrah sebanyak satu sha&apos; kurma atau satu sha&apos; gandum ke atas setiap hamba dan orang merdeka, lelaki dan perempuan, kanak-kanak dan dewasa daripada kalangan orang Islam; dan Baginda memerintahkan agar ia ditunaikan sebelum orang ramai keluar menunaikan solat (Hari Raya).&rdquo;
-              </p>
-              <p className="text-[10px] text-teal-200 pt-0.5">
-                *Ketetapan MUIB: 1 sha&apos; disukat bersamaan <strong>2.268 kilogram beras</strong> makanan asasi penduduk Negara Brunei Darussalam.
-              </p>
-            </div>
-
-            {/* Hadis Sahih Zakat Harta */}
-            <div className="bg-white/10 rounded-2xl p-4 border border-white/15 backdrop-blur-xs space-y-2">
-              <div className="flex justify-between items-center text-[11px] font-bold text-teal-200 border-b border-white/10 pb-1.5 flex-wrap gap-1">
-                <span>Hadis Sahih Zakat Harta</span>
-                <span className="text-[10px] bg-amber-500/40 text-amber-100 px-2 py-0.5 rounded-full font-bold">
-                  Bukhari No. 1395 • Muslim No. 19
-                </span>
-              </div>
-              <p className="text-right font-serif text-base leading-loose text-teal-50 pt-1">
-                عَنِ ابْنِ عَبَّاسٍ رَضِيَ اللَّهُ عَنْهُمَا أَنَّ رَسُولَ اللَّهِ ﷺ بَعَثَ مُعَاذًا إِلَى الْيَمَنِ فَقَالَ: «...فَأَعْلِمْهُمْ أَنَّ اللَّهَ افْتَرَضَ عَلَيْهِمْ صَدَقَةً فِي أَمْوَالِهِمْ تُؤْخَذُ مِنْ أَغْنِيَائِهِمْ وَتُرَدُّ عَلَى فُقَرَائِهِمْ...»
-              </p>
-              <p className="text-slate-200 text-[11px] italic font-medium pt-1">
-                Dari Sayyidina Ibnu Abbas r.a. bahawasanya Rasulullah ﷺ ketika mengutus Mu&apos;adz r.a. ke Yaman berpesan: &ldquo;...Maka beritahukanlah kepada mereka bahawa Allah telah memfardhukan zakat ke atas harta mereka, yang diambil daripada orang-orang kaya dalam kalangan mereka dan diagihkan kepada orang-orang fakir miskin dalam kalangan mereka.&rdquo;
               </p>
             </div>
 
