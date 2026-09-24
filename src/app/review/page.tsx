@@ -12,6 +12,8 @@ import {
   extractZakatHartaDetails,
   extractMuzakkiInfo, 
   compressReceiptImage,
+  convertArabicIndicToRomanDigits,
+  extractStandardizedPaymentDate,
   PaperColorResult 
 } from '@/lib/ocr-helper';
 
@@ -33,6 +35,7 @@ export default function ReviewPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isWakalah, setIsWakalah] = useState(false);
   
   const [riceTypes, setRiceTypes] = useState<any[]>([
     { id: 'bf3a55f9-4fec-40b3-b690-3136f8b6b71d', code: 'B_SIAM_1447H', name: 'Beras Siam', price: 1.93, activeYear: '1447H' },
@@ -180,21 +183,15 @@ export default function ReviewPage() {
         if (siam) extRiceId = siam.id;
       }
 
-      // 8. Kesan Tarikh Pembayaran
-      let extDate = new Date().toISOString().split('T')[0];
-      const dateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-      if (dateMatch) {
-        const day = dateMatch[1].padStart(2, '0');
-        const month = dateMatch[2].padStart(2, '0');
-        let year = dateMatch[3];
-        if (year.length === 2) year = '20' + year;
-        const parsedDate = `${year}-${month}-${day}`;
-        if (!isNaN(new Date(parsedDate).getTime())) {
-          extDate = parsedDate;
-        }
-      }
+      // 8. Kesan Tarikh Pembayaran (Auto-selaras digit Jawi / Arab / Roman kepada format standard ISO)
+      const extDate = extractStandardizedPaymentDate(text);
 
       const isHarta = receiptData.zakatType === 'HARTA';
+
+      // Semak sekiranya resit menyebut perwakilan atau Wakalah
+      if (/wakalah|وكالة|mewakili|wakil/i.test(text)) {
+        setIsWakalah(true);
+      }
 
       // Simpan maklumat pengesanan untuk rujukan visual amil
       setDetectionInfo({
@@ -316,11 +313,16 @@ export default function ReviewPage() {
         }
       }
 
+      const finalPayerName = isWakalah
+        ? (formData.payerName ? (formData.payerName.toLowerCase().includes('wakalah') ? formData.payerName : `${formData.payerName} (Wakalah)`) : 'Wakalah')
+        : (formData.payerName || 'Pembayar Zakat');
+
       const res = await fetch('/api/receipts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          payerName: finalPayerName,
           riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
           totalAmount: parseFloat(totalAmount),
           zakatType: formData.zakatType,
@@ -563,8 +565,9 @@ export default function ReviewPage() {
                     placeholder="Contoh: 46440"
                     value={formData.receiptNumber} 
                     onChange={e => {
-                      // Hanya benarkan angka dan tanpa sebarang kod huruf
-                      const cleanNum = e.target.value.replace(/[^0-9]/g, '');
+                      // Tukar digit Jawi/Arab ke Roman dan hanya benarkan angka
+                      const converted = convertArabicIndicToRomanDigits(e.target.value);
+                      const cleanNum = converted.replace(/[^0-9]/g, '');
                       setFormData({...formData, receiptNumber: cleanNum});
                     }}
                     className="w-full bg-white border-2 border-amber-300/80 rounded-2xl px-4 py-3.5 text-red-600 font-mono font-black text-xl tracking-widest focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none shadow-sm transition-all"
@@ -594,7 +597,10 @@ export default function ReviewPage() {
                     min="0"
                     placeholder="0.00"
                     value={formData.manualTotal}
-                    onChange={e => setFormData({...formData, manualTotal: e.target.value})}
+                    onChange={e => {
+                      const converted = convertArabicIndicToRomanDigits(e.target.value);
+                      setFormData({...formData, manualTotal: converted});
+                    }}
                     className="w-full bg-white border-2 border-amber-400 rounded-xl pl-9 pr-4 py-3 text-slate-900 font-black text-2xl tracking-tight focus:ring-2 focus:ring-amber-500 outline-none shadow-sm"
                   />
                 </div>
@@ -668,7 +674,7 @@ export default function ReviewPage() {
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                        Nama Bank (بڠك)
+                        Nama Bank
                       </label>
                       <input 
                         type="text"
@@ -680,13 +686,16 @@ export default function ReviewPage() {
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                        Nombor Cek (نمبور چيک)
+                        Nombor Cek
                       </label>
                       <input 
                         type="text"
                         placeholder="Contoh: 0012345"
                         value={formData.chequeNumber}
-                        onChange={e => setFormData({...formData, chequeNumber: e.target.value})}
+                        onChange={e => {
+                          const roman = convertArabicIndicToRomanDigits(e.target.value);
+                          setFormData({...formData, chequeNumber: roman});
+                        }}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none"
                       />
                     </div>
@@ -737,7 +746,10 @@ export default function ReviewPage() {
                     type="text" 
                     placeholder="Contoh: DW 077703 atau CS 014008"
                     value={formData.receiptNumber} 
-                    onChange={e => setFormData({...formData, receiptNumber: e.target.value})}
+                    onChange={e => {
+                      const converted = convertArabicIndicToRomanDigits(e.target.value);
+                      setFormData({...formData, receiptNumber: converted});
+                    }}
                     className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900 font-mono font-bold text-lg tracking-wider focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm transition-all"
                   />
                 </div>
@@ -918,64 +930,68 @@ export default function ReviewPage() {
           {/* MEDAN BERSAMA: MAKLUMAT PEMBAYAR (KAD PINTAR & NAMA)       */}
           {/* ========================================================= */}
           
-          {/* NOMBOR KAD PINTAR */}
+          {/* NOMBOR KAD PINTAR (BERSIH TANPA BUTANG SAHKAN & TANPA JAWI) */}
           <div className="space-y-1.5 pt-1">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-              Nombor Kad Pintar (كاد ڤينتر)
+              Nombor Kad Pintar
             </label>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Contoh: 01-123456"
-                value={formData.icNumber} 
-                onChange={e => setFormData({...formData, icNumber: e.target.value, isVerified: false})}
-                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm transition-all placeholder:text-slate-300 placeholder:font-normal"
-              />
-              <button 
-                onClick={verifyIC}
-                disabled={isVerifying || !formData.icNumber || formData.isVerified}
-                className={`px-5 rounded-2xl font-bold text-sm whitespace-nowrap active:scale-95 transition-all shadow-sm border ${formData.isVerified ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-slate-800 text-white border-transparent hover:bg-slate-900 disabled:opacity-50'}`}
-              >
-                {isVerifying ? <Loader2 className="animate-spin mx-auto" size={18} /> : (formData.isVerified ? 'Sah ✓' : 'Sahkan')}
-              </button>
-            </div>
+            <input 
+              type="text" 
+              placeholder="Contoh: 01-123456"
+              value={formData.icNumber} 
+              onChange={e => {
+                const roman = convertArabicIndicToRomanDigits(e.target.value);
+                setFormData({...formData, icNumber: roman, isVerified: false});
+              }}
+              className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm transition-all placeholder:text-slate-300 placeholder:font-normal"
+            />
           </div>
 
-          {/* NAMA PEMBAYAR */}
+          {/* NAMA PEMBAYAR (TANPA JAWI & DILENGKAPI CHECKBOX WAKALAH) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between ml-1">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                Nama Pembayar (نام)
+                Nama Pembayar
               </label>
               <span className="text-[11px] font-normal text-slate-400">
-                (Optional)
+                (Pilihan)
               </span>
             </div>
             <div className="relative">
               <input 
                 type="text" 
-                placeholder="(Optional)"
+                placeholder="(Pilihan)"
                 value={formData.payerName} 
                 onChange={e => setFormData({...formData, payerName: e.target.value})}
-                className={`w-full bg-white border rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 outline-none pr-10 shadow-sm transition-all placeholder:text-slate-400 placeholder:font-normal ${formData.isVerified ? 'border-teal-400 bg-teal-50/30' : 'border-slate-200 focus:border-teal-500'}`}
+                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm transition-all placeholder:text-slate-400 placeholder:font-normal"
               />
-              {formData.isVerified && (
-                <div className="absolute right-4 top-4 text-teal-500 bg-white rounded-full">
-                  <CheckCircle2 size={20} className="fill-current text-white bg-teal-500 rounded-full" />
-                </div>
-              )}
+            </div>
+
+            {/* CHECKBOX WAKALAH */}
+            <div className="flex items-center gap-2 pt-1 ml-1">
+              <label className="relative flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isWakalah}
+                  onChange={e => setIsWakalah(e.target.checked)}
+                  className="w-4 h-4 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500 cursor-pointer accent-teal-600"
+                />
+                <span className="ml-2 text-xs font-bold text-slate-700">
+                  Wakalah <span className="text-[11px] font-medium text-slate-500">(Mewakili Pembayar Lain)</span>
+                </span>
+              </label>
             </div>
           </div>
 
-          {/* MEDAN ALAMAT JIKA ZAKAT HARTA */}
+          {/* MEDAN ALAMAT JIKA ZAKAT HARTA (TANPA JAWI) */}
           {formData.zakatType === 'HARTA' && (
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                Alamat Pembayar (علامة)
+                Alamat Pembayar
               </label>
               <input 
                 type="text" 
-                placeholder="Contoh: No. 12, Spg 34, Kg. Kiulap (Optional)"
+                placeholder="Contoh: No. 12, Spg 34, Kg. Kiulap (Pilihan)"
                 value={formData.payerAddress} 
                 onChange={e => setFormData({...formData, payerAddress: e.target.value})}
                 className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm transition-all placeholder:text-slate-300"
@@ -1080,7 +1096,16 @@ export default function ReviewPage() {
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500 font-medium">Nama</span>
-                <span className="font-bold text-slate-800 text-right max-w-[150px] truncate">{formData.payerName || 'Pembayar Zakat'}</span>
+                <div className="text-right">
+                  <span className="font-bold text-slate-800 max-w-[160px] truncate block">
+                    {formData.payerName || 'Pembayar Zakat'}
+                  </span>
+                  {isWakalah && (
+                    <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
+                      Wakalah (Mewakili)
+                    </span>
+                  )}
+                </div>
               </div>
               
               {formData.zakatType === 'HARTA' ? (

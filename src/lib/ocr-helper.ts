@@ -29,15 +29,22 @@ export interface ReceiptExtractionResult {
 }
 
 // Pemetaan Digit Arab-Indic ke Nombor Roman
-const ARABIC_DIGIT_MAP: Record<string, string> = {
-  '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4', '۴': '4',
-  '٥': '5', '۵': '5', '٦': '6', '۶': '6', '٧': '7', '۷': '7',
-  '٨': '8', '۸': '8', '٩': '9', '۹': '9',
+export const ARABIC_DIGIT_MAP: Record<string, string> = {
+  '٠': '0', '۰': '0',
+  '١': '1', '۱': '1',
+  '٢': '2', '۲': '2',
+  '٣': '3', '۳': '3',
+  '٤': '4', '۴': '4',
+  '٥': '5', '۵': '5',
+  '٦': '6', '۶': '6',
+  '٧': '7', '۷': '7',
+  '٨': '8', '۸': '8',
+  '٩': '9', '۹': '9',
 };
 
-// Pemetaan Perkataan Jawi / Melayu untuk Bilangan
-const JAWI_WORD_MAP: Record<string, number> = {
-  'ساتو': 1,
+// Pemetaan Perkataan Jawi / Melayu untuk Bilangan Muzakki & Tanggungan
+export const JAWI_WORD_MAP: Record<string, number> = {
+  'ساتو': 1, 'سأورڠ': 1, 'سورڠ': 1, 'ساورڠ': 1,
   'دوا': 2,
   'تيݢ': 3, 'تيګ': 3, 'تيك': 3,
   'امڤت': 4, 'امفت': 4,
@@ -50,10 +57,51 @@ const JAWI_WORD_MAP: Record<string, number> = {
 };
 
 /**
+ * Tukar semua digit Arab-Indic / Jawi (٠-٩) dalam sebarang teks kepada digit Roman (0-9)
+ */
+export function convertArabicIndicToRomanDigits(text: string): string {
+  if (!text) return '';
+  return text.replace(/[٠-٩۰-۹]/g, ch => ARABIC_DIGIT_MAP[ch] || ch);
+}
+
+/**
+ * Ekstrak dan selaraskan tarikh kepada format Roman ISO (YYYY-MM-DD)
+ * Menyokong tarikh tulisan tangan dalam Jawi / Arab dan Roman
+ */
+export function extractStandardizedPaymentDate(text: string): string {
+  const normalized = convertArabicIndicToRomanDigits(text);
+
+  // 1. Format DD/MM/YYYY atau DD-MM-YYYY atau DD.MM.YYYY
+  const dmyMatch = normalized.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/);
+  if (dmyMatch) {
+    const d = parseInt(dmyMatch[1], 10);
+    const m = parseInt(dmyMatch[2], 10);
+    let y = parseInt(dmyMatch[3], 10);
+    if (y < 100) y = 2000 + y;
+
+    if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 2020 && y <= 2040) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+  }
+
+  // 2. Format YYYY-MM-DD
+  const ymdMatch = normalized.match(/\b(20\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/);
+  if (ymdMatch) {
+    const y = ymdMatch[1];
+    const m = String(parseInt(ymdMatch[2], 10)).padStart(2, '0');
+    const d = String(parseInt(ymdMatch[3], 10)).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Lalai kepada tarikh hari ini
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
  * Tukar string nombor Arab-Indic ke integer
  */
 export function parseArabicIndicDigits(str: string): number {
-  const converted = str.replace(/[٠-٩۰-۹]/g, ch => ARABIC_DIGIT_MAP[ch] || ch);
+  const converted = convertArabicIndicToRomanDigits(str);
   const parsed = parseInt(converted, 10);
   return isNaN(parsed) ? 0 : parsed;
 }
@@ -328,12 +376,14 @@ export function extractReceiptCodeAndNumber(
   zakatType: 'FITRAH' | 'HARTA';
   detectionReasons: string[];
 } {
-  const upper = text.toUpperCase();
+  // Selaraskan sebarang digit Arab-Indic / Jawi kepada Roman terlebih dahulu
+  const normalizedText = convertArabicIndicToRomanDigits(text);
+  const upper = normalizedText.toUpperCase();
   const reasons: string[] = [];
 
   // 1. Kenal pasti kata kunci Resit Zakat Harta (Borang A)
   const hartaKeywordsRegex = /(?:120|borang\s*a|بور[ان]?غ\s*a|penggal\s*77|فغكل\s*77|peraturan\s*10|فراتوران\s*10|resit\s*rasmi|ريسية\s*رسمي|akta\s*majlis|اکتا\s*مجليس|mahkamah|محكمه|qadhi|قاضي|kad\s*pintar|كاد\s*ڤينتر|علامة|باپق|چيک|نمبور\s*چيک|diterima\s*drpd|diterima\s*daripada|دتريما\s*درفد)/i;
-  const hasHartaKeywords = hartaKeywordsRegex.test(text);
+  const hasHartaKeywords = hartaKeywordsRegex.test(normalizedText);
   if (hasHartaKeywords) reasons.push('Mengandungi teks rasmi Borang A / Akta Majlis Ugama');
 
   // 2. Kenal pasti kod Zakat Fitrah (DW / CS)
@@ -378,7 +428,7 @@ export function extractReceiptCodeAndNumber(
     let detected5Digits = '';
 
     // Pola H1: Perkataan 'بيلاغن' atau 'bilangan' diikuti 5-digit angka (cth: بيلاغن : 46440)
-    const bilMatch = text.match(/(?:بيلاغن|bilangan|bil|no|or)\s*[:.-]?\s*([0-9OISB]{5})\b/i);
+    const bilMatch = normalizedText.match(/(?:بيلاغن|bilangan|bil|no|or)\s*[:.-]?\s*([0-9OISB]{5})\b/i);
     if (bilMatch) {
       detected5Digits = cleanDigitString(bilMatch[1]);
       reasons.push(`Nombor 5-angka dikesan selepas perkataan Bilangan: ${detected5Digits}`);
@@ -386,7 +436,7 @@ export function extractReceiptCodeAndNumber(
 
     // Pola H2: Mana-mana padanan 5-digit nombor dalam 4 baris teratas (kebiasaannya nombor siri atas kanan)
     if (!detected5Digits || detected5Digits.length !== 5) {
-      const lines = text.split('\n').slice(0, 5);
+      const lines = normalizedText.split('\n').slice(0, 5);
       for (const line of lines) {
         const top5Match = line.match(/\b([0-9OISB]{5})\b/);
         if (top5Match) {
@@ -402,7 +452,7 @@ export function extractReceiptCodeAndNumber(
 
     // Pola H3: Mana-mana blok 5-digit tepat dalam teks
     if (!detected5Digits || detected5Digits.length !== 5) {
-      const all5 = text.match(/\b\d{5}\b/g);
+      const all5 = normalizedText.match(/\b\d{5}\b/g);
       if (all5 && all5.length > 0) {
         detected5Digits = all5[0];
       }
@@ -440,7 +490,7 @@ export function extractReceiptCodeAndNumber(
   let detected6Digits = '';
 
   // Pola F1: Baris yang mengandungi DW atau CS diikuti nombor 5-7 digit
-  const codePrefixMatch = text.match(/(?:DW|CS|EW)\s*[:.-]?\s*([0-9OISB]{5,7})/i);
+  const codePrefixMatch = normalizedText.match(/(?:DW|CS|EW)\s*[:.-]?\s*([0-9OISB]{5,7})/i);
   if (codePrefixMatch) {
     const cleaned = cleanDigitString(codePrefixMatch[1]);
     if (cleaned.length === 6) {
@@ -454,7 +504,7 @@ export function extractReceiptCodeAndNumber(
 
   // Pola F2: Teks nombor yang bersebelahan perkataan 'بيلاغن' (Bilangan)
   if (!detected6Digits) {
-    const lines = text.split('\n');
+    const lines = normalizedText.split('\n');
     for (const line of lines) {
       if (line.includes('يلاغن') || line.includes('بيلاغن') || line.toLowerCase().includes('bilangan')) {
         const lineDigits = line.match(/\b([0-9OISB]{5,7})\b/);
@@ -471,7 +521,7 @@ export function extractReceiptCodeAndNumber(
 
   // Pola F3: Mana-mana blok 6-digit dalam teks
   if (!detected6Digits) {
-    const allMatches = text.match(/\b\d{6}\b/g);
+    const allMatches = normalizedText.match(/\b\d{6}\b/g);
     if (allMatches && allMatches.length > 0) {
       const preferZero = allMatches.find(m => m.startsWith('0'));
       detected6Digits = preferZero || allMatches[0];
@@ -480,7 +530,7 @@ export function extractReceiptCodeAndNumber(
 
   // Pola F4: Cari digit 6-karakter yang boleh dinormalkan
   if (!detected6Digits) {
-    const rawMatches = text.match(/\b[0-9OISB]{6}\b/gi);
+    const rawMatches = normalizedText.match(/\b[0-9OISB]{6}\b/gi);
     if (rawMatches && rawMatches.length > 0) {
       const cleaned = cleanDigitString(rawMatches[0]);
       if (cleaned.length === 6) {
@@ -515,6 +565,7 @@ export function extractZakatHartaDetails(text: string): {
   bankName: string;
   chequeNumber: string;
 } {
+  const normalized = convertArabicIndicToRomanDigits(text);
   let payerName = '';
   let payerIcNumber = '';
   let amount = '0.00';
@@ -523,7 +574,7 @@ export function extractZakatHartaDetails(text: string): {
   let chequeNumber = '';
 
   // 1. Ekstrak No Kad Pintar (Format Brunei: XX-XXXXXX atau 8 digit)
-  const icMatch = text.match(/\b(\d{2}[-\s]?\d{6})\b/);
+  const icMatch = normalized.match(/\b(\d{2}[-\s]?\d{6})\b/);
   if (icMatch) {
     payerIcNumber = icMatch[1].replace(/\s+/g, '-');
     if (!payerIcNumber.includes('-') && payerIcNumber.length === 8) {
@@ -541,7 +592,7 @@ export function extractZakatHartaDetails(text: string): {
   }
 
   // 3. Ekstrak Jumlah Bayaran ($ dan sen)
-  const amountMatch = text.match(/(?:\$|B\$|banyak|jumlah)[\s\:\._]*([0-9]+(?:[\.,][0-9]{2})?)/i);
+  const amountMatch = normalized.match(/(?:\$|B\$|banyak|jumlah)[\s\:\._]*([0-9]+(?:[\.,][0-9]{2})?)/i);
   if (amountMatch && amountMatch[1]) {
     const cleanAmt = parseFloat(amountMatch[1].replace(',', '.'));
     if (!isNaN(cleanAmt) && cleanAmt > 0) {
@@ -568,7 +619,7 @@ export function extractZakatHartaDetails(text: string): {
     bankName = bankMatch[1].trim();
   }
 
-  const chequeMatch = text.match(/(?:nombor\s*cek|no\s*cek|چيک)[\s\:\._]*([0-9]{4,10})/i);
+  const chequeMatch = normalized.match(/(?:nombor\s*cek|no\s*cek|چيک)[\s\:\._]*([0-9]{4,10})/i);
   if (chequeMatch && chequeMatch[1]) {
     chequeNumber = chequeMatch[1].trim();
   }

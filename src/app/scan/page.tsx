@@ -19,6 +19,7 @@ export default function ScanPage() {
   // Pilihan Jenis Resit: 'FITRAH' (Segi Empat Tepat / Square, DW/CS) | 'HARTA' (Lanskap Memanjang, 5-Angka Merah)
   const [receiptType, setReceiptType] = useState<'FITRAH' | 'HARTA'>('FITRAH');
   const [cropOrientation, setCropOrientation] = useState<'SQUARE' | 'LANDSCAPE'>('SQUARE');
+  const [showTypeModal, setShowTypeModal] = useState<boolean>(true);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [mounted, setMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -26,6 +27,23 @@ export default function ScanPage() {
 
   useEffect(() => {
     setMounted(true);
+    // Semak sekiranya ada parameter jenis zakat daripada halaman sebelum
+    const savedType = sessionStorage.getItem('scanReceiptType') as 'FITRAH' | 'HARTA' | null;
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const typeParam = urlParams?.get('type') as 'FITRAH' | 'HARTA' | null;
+
+    if (typeParam === 'FITRAH' || typeParam === 'HARTA') {
+      setReceiptType(typeParam);
+      setCropOrientation(typeParam === 'HARTA' ? 'LANDSCAPE' : 'SQUARE');
+      sessionStorage.setItem('scanReceiptType', typeParam);
+      setShowTypeModal(false);
+    } else if (savedType === 'FITRAH' || savedType === 'HARTA') {
+      setReceiptType(savedType);
+      setCropOrientation(savedType === 'HARTA' ? 'LANDSCAPE' : 'SQUARE');
+      setShowTypeModal(true);
+    } else {
+      setShowTypeModal(true);
+    }
   }, []);
 
   // State Penyelarasan Imej Galeri (Crop, Zoom, Pan & Rotate)
@@ -260,6 +278,112 @@ export default function ScanPage() {
         </div>
       )}
 
+      {/* POP-UP MODAL: PILIH JENIS ZAKAT (RINGKAS & BERSIH) */}
+      {showTypeModal && !adjustImage && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[90] flex items-center justify-center p-5">
+          <div className="bg-slate-900/95 border border-white/15 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center relative overflow-hidden">
+            {/* Ambient Glow */}
+            <div className="absolute -top-12 -left-12 w-32 h-32 bg-teal-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500/20 to-emerald-500/20 border border-teal-500/30 flex items-center justify-center mx-auto mb-4 text-teal-400 shadow-inner">
+              <Sparkles size={28} />
+            </div>
+
+            <h2 className="text-xl font-black text-white tracking-tight">Imbas Resit Zakat</h2>
+            <p className="text-xs text-slate-400 mt-1 mb-5">
+              Sila pilih jenis zakat yang ingin diimbas:
+            </p>
+
+            <div className="space-y-3">
+              {/* Pilihan 1: Zakat Fitrah */}
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptType('FITRAH');
+                  setCropOrientation('SQUARE');
+                  sessionStorage.setItem('scanReceiptType', 'FITRAH');
+                  setShowTypeModal(false);
+                }}
+                className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 group active:scale-[0.98] transition-all ${
+                  receiptType === 'FITRAH'
+                    ? 'bg-teal-500/20 border-teal-400/80 shadow-lg shadow-teal-500/10'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-teal-500/40'
+                }`}
+              >
+                <div className="w-12 h-12 rounded-xl bg-teal-500/25 border border-teal-400/30 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
+                  🌾
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-extrabold text-white">Zakat Fitrah</h3>
+                    {receiptType === 'FITRAH' && (
+                      <span className="text-[10px] font-bold text-teal-300 bg-teal-500/30 px-2 py-0.5 rounded-full border border-teal-400/30">
+                        Aktif
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-teal-300/80 font-medium truncate mt-0.5">
+                    Resit Beras Wangi (DW) & Beras Siam (CS)
+                  </p>
+                </div>
+              </button>
+
+              {/* Pilihan 2: Zakat Harta */}
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptType('HARTA');
+                  setCropOrientation('LANDSCAPE');
+                  sessionStorage.setItem('scanReceiptType', 'HARTA');
+                  setShowTypeModal(false);
+                }}
+                className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 group active:scale-[0.98] transition-all ${
+                  receiptType === 'HARTA'
+                    ? 'bg-amber-500/20 border-amber-400/80 shadow-lg shadow-amber-500/10'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-amber-500/40'
+                }`}
+              >
+                <div className="w-12 h-12 rounded-xl bg-amber-500/25 border border-amber-400/30 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
+                  🪙
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-extrabold text-white">Zakat Harta</h3>
+                    {receiptType === 'HARTA' && (
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-500/30 px-2 py-0.5 rounded-full border border-amber-400/30">
+                        Aktif
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-amber-300/80 font-medium truncate mt-0.5">
+                    Borang A (Wang Simpanan, Emas, Perniagaan)
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-white/10 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="text-xs text-slate-400 hover:text-white font-medium transition-colors"
+              >
+                ← Kembali
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowTypeModal(false)}
+                className="text-xs font-bold text-teal-400 hover:text-teal-300 transition-colors"
+              >
+                Teruskan Mengimbas →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ============================================================== */}
       {/* PAPARAN A: PENYELARASAN IMEJ GALERI (RESIZE, PAN, ROTATE)      */}
       {/* ============================================================== */}
@@ -276,8 +400,8 @@ export default function ScanPage() {
             </button>
             <div className="text-center">
               <h2 className="text-white font-bold text-sm tracking-wide">Penyelarasan Resit Galeri</h2>
-              <p className="text-[11px] text-teal-400 font-medium">
-                {cropOrientation === 'LANDSCAPE' ? 'Format Memanjang (Zakat Harta)' : 'Format Segi Empat Tepat (Zakat Fitrah)'}
+              <p className={`text-[11px] font-medium ${cropOrientation === 'LANDSCAPE' ? 'text-amber-400' : 'text-teal-400'}`}>
+                {cropOrientation === 'LANDSCAPE' ? 'Zakat Harta' : 'Zakat Fitrah'}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
@@ -292,9 +416,9 @@ export default function ScanPage() {
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
                     : 'bg-teal-500/20 text-teal-300 border-teal-500/40'
                 }`}
-                title="Tukar antara Lanskap dan Segi Empat"
+                title="Tukar jenis zakat"
               >
-                {cropOrientation === 'LANDSCAPE' ? '🪙 Lanskap' : '🌾 Segi Empat'}
+                {cropOrientation === 'LANDSCAPE' ? '🪙 Zakat Harta' : '🌾 Zakat Fitrah'}
               </button>
               <button 
                 onClick={resetAdjust}
@@ -443,7 +567,7 @@ export default function ScanPage() {
       /* ============================================================== */
         <div className="w-full h-screen flex flex-col justify-between relative overflow-hidden bg-black">
           
-          {/* Header Atas: Pilihan Mod Segmen (Kamera Terus vs Galeri) */}
+          {/* Header Atas: Pilihan Mod Segmen (Kamera Terus vs Galeri Sahaja) */}
           <div className="w-full p-4 pt-4 flex flex-col gap-3 z-20 bg-gradient-to-b from-black/90 via-black/50 to-transparent">
             <div className="flex justify-between items-center">
               <button 
@@ -453,11 +577,26 @@ export default function ScanPage() {
               >
                 <X size={22} />
               </button>
-              <h1 className="text-white font-bold text-xs tracking-wider uppercase">Pilihan Kaedah Imbas</h1>
+              
+              {/* Badge Pemilih Jenis Zakat (Klik untuk Buka Pop-up Pilihan Semula) */}
+              <button
+                type="button"
+                onClick={() => setShowTypeModal(true)}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border backdrop-blur-md text-xs font-black shadow-lg transition-all active:scale-95 ${
+                  receiptType === 'HARTA'
+                    ? 'bg-amber-500/25 border-amber-400/70 text-amber-300 hover:bg-amber-500/35'
+                    : 'bg-teal-500/25 border-teal-400/70 text-teal-300 hover:bg-teal-500/35'
+                }`}
+                title="Klik untuk menukar jenis zakat"
+              >
+                <span>{receiptType === 'HARTA' ? '🪙 Zakat Harta' : '🌾 Zakat Fitrah'}</span>
+                <span className="text-[10px] text-white/70">▾</span>
+              </button>
+
               <div className="w-9"></div>
             </div>
 
-            {/* SEGMENTED TAB: PILIHAN IMBAS TERUS KAMERA ATAU GALERI */}
+            {/* SEGMENTED TAB: HANYA SATU SAHAJA (IMBAS TERUS KAMERA ATAU GALERI) */}
             <div className="flex bg-white/15 p-1 rounded-2xl backdrop-blur-md border border-white/10 max-w-xs mx-auto w-full">
               <button
                 type="button"
@@ -486,32 +625,6 @@ export default function ScanPage() {
               >
                 <ImageIcon size={14} />
                 <span>Dari Galeri</span>
-              </button>
-            </div>
-            {/* TOGGLE PILIHAN JENIS ZAKAT: FITRAH (SEGI EMPAT) VS HARTA (LANSKAP) */}
-            <div className="flex bg-black/40 p-1 rounded-2xl backdrop-blur-md border border-white/15 max-w-xs mx-auto w-full">
-              <button
-                type="button"
-                onClick={() => setReceiptType('FITRAH')}
-                className={`flex-1 py-1.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                  receiptType === 'FITRAH'
-                    ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                <span>🌾 Fitrah (Segi Empat)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setReceiptType('HARTA')}
-                className={`flex-1 py-1.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                  receiptType === 'HARTA'
-                    ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black shadow-md'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                <span>🪙 Harta (Lanskap)</span>
               </button>
             </div>
           </div>
