@@ -36,6 +36,7 @@ export async function GET() {
       'Tarikh',
       'Nama Pembayar',
       'No. K/P',
+      'Wakalah',
       'Kategori Beras / Harta',
       'Tanggungan',
       'Jumlah Zakat ($)',
@@ -51,6 +52,7 @@ export async function GET() {
       new Date(r.paymentDate).toLocaleDateString('ms-MY'),
       `"${r.payerName}"`, // Quote strings that might have commas
       r.payerIcNumber || '-',
+      r.isWakalah ? 'Ya' : 'Tidak',
       r.zakatType === 'HARTA' ? 'Harta' : (r.riceType?.name || '-'),
       r.zakatType === 'HARTA' ? '-' : r.dependents.toString(),
       r.totalAmount.toFixed(2),

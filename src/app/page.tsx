@@ -53,6 +53,7 @@ export default async function Home() {
             paymentDate: true,
             zakatType: true,
             dependents: true,
+            isWakalah: true,
             riceType: { select: { name: true, price: true } }
           }
         }),
@@ -191,8 +192,13 @@ export default async function Home() {
                       <FileText size={20} />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-slate-800 text-sm">{receipt.payerName}</p>
+                        {receipt.isWakalah && (
+                          <span className="bg-teal-50 text-teal-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-teal-200">
+                            Wakalah
+                          </span>
+                        )}
                         {isHarta && (
                           <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-300">
                             HARTA

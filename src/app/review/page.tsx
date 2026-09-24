@@ -342,9 +342,7 @@ export default function ReviewPage() {
 
       const finalPayerName = isQuickMode
         ? 'Arkib Zakat Fitrah'
-        : (isWakalah
-            ? (formData.payerName ? (formData.payerName.toLowerCase().includes('wakalah') ? formData.payerName : `${formData.payerName} (Wakalah)`) : 'Wakalah')
-            : (formData.payerName || 'Pembayar Zakat'));
+        : (formData.payerName?.trim() || 'Pembayar Zakat');
 
       const finalIcNumber = isQuickMode ? null : (formData.icNumber || null);
 
@@ -353,7 +351,7 @@ export default function ReviewPage() {
         payerName: finalPayerName,
         icNumber: finalIcNumber,
         isQuickMode,
-        isWakalah,
+        isWakalah: Boolean(isWakalah),
         riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
         totalAmount: parseFloat(totalAmount),
         zakatType: formData.zakatType,
@@ -538,7 +536,13 @@ export default function ReviewPage() {
                   </span>
                   <div>
                     <p className="font-black text-sm">
-                      {formData.zakatType === 'HARTA' ? 'Kertas Putih' : (detectionInfo.code || 'Fitrah')}
+                      {formData.zakatType === 'HARTA' ? (
+                        'Kertas Putih'
+                      ) : (
+                        <span className="text-red-600 font-black text-base tracking-wider">
+                          {detectionInfo.code || (isReceiptDW ? 'DW' : (isReceiptCS ? 'CS' : 'Fitrah'))}
+                        </span>
+                      )}
                     </p>
                     <p className="text-[10px] opacity-80">
                       {formData.zakatType === 'HARTA' ? 'Memanjang (Landscape)' : (detectionInfo.paperColor?.label || 'Segi Empat Tepat')}
@@ -554,7 +558,9 @@ export default function ReviewPage() {
                 </span>
                 <div className="mt-1">
                   <span className="font-mono font-black text-base text-red-600 tracking-wider">
-                    {formData.receiptNumber || detectionInfo.digits || '—'}
+                    {formData.zakatType === 'HARTA'
+                      ? (formData.receiptNumber || '—')
+                      : (detectionInfo.digits || formData.receiptNumber.replace(/^(DW|CS)\s*/i, '').trim() || '—')}
                   </span>
                   <p className="text-[10px] text-slate-500">
                     {formData.zakatType === 'HARTA' ? 'Sebelah Atas Kanan (Tiada Kod)' : 'Posisi Tengah Resit'}
@@ -1116,7 +1122,7 @@ export default function ReviewPage() {
           <div className="space-y-1.5 pt-1">
             <div className="flex items-center justify-between ml-1">
               <label className={`text-[11px] font-bold uppercase tracking-widest ${isQuickMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Nombor Kad Pintar
+                Nombor Kad Pintar {!isQuickMode && <span className="font-normal text-slate-400 capitalize text-[10px] ml-1">(Pilihan)</span>}
               </label>
               {isQuickMode && (
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
@@ -1136,7 +1142,7 @@ export default function ReviewPage() {
               className={`w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all ${
                 isQuickMode 
                   ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed select-none placeholder:text-slate-400 placeholder:italic opacity-80' 
-                  : 'bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-300'
+                  : 'bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-400'
               }`}
             />
           </div>
@@ -1145,15 +1151,11 @@ export default function ReviewPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between ml-1">
               <label className={`text-[11px] font-bold uppercase tracking-widest ${isQuickMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Nama Pembayar
+                Nama Pembayar {!isQuickMode && <span className="font-normal text-slate-400 capitalize text-[10px] ml-1">(Pilihan)</span>}
               </label>
-              {isQuickMode ? (
+              {isQuickMode && (
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
                   Tak Perlu Diisi (Mod Arkib)
-                </span>
-              ) : (
-                <span className="text-[11px] font-normal text-slate-400">
-                  (Pilihan)
                 </span>
               )}
             </div>
@@ -1161,7 +1163,7 @@ export default function ReviewPage() {
               <input 
                 type="text" 
                 disabled={isQuickMode}
-                placeholder={isQuickMode ? "Arkib Zakat Fitrah (Dikosongkan)" : "(Pilihan)"}
+                placeholder={isQuickMode ? "Arkib Zakat Fitrah (Dikosongkan)" : "Contoh: Abu bin Ali"}
                 value={isQuickMode ? '' : formData.payerName} 
                 onChange={e => setFormData({...formData, payerName: e.target.value})}
                 className={`w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all ${

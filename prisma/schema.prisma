@@ -63,6 +63,7 @@ model Receipt {
   payerName     String
   payerIcNumber String?
   isVerified    Boolean  @default(false)
+  isWakalah     Boolean  @default(false)
   imageUrl      String?  
   dependents    Int      @default(0)
   paymentDate   DateTime @default(now())

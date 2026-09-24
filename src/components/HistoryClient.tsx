@@ -242,8 +242,13 @@ export default function HistoryClient({
                       </div>
                     )}
                     <div className="overflow-hidden">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-bold text-slate-800 text-sm truncate pr-2">{receipt.payerName || 'Pembayar Zakat'}</p>
+                        {receipt.isWakalah && (
+                          <span className="bg-teal-50 text-teal-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-teal-200 shrink-0">
+                            Wakalah
+                          </span>
+                        )}
                         {isHarta && (
                           <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-300 shrink-0">
                             HARTA
