@@ -269,6 +269,54 @@ export default async function InfoPage() {
           </div>
         </section>
 
+        {/* ============================================================== */}
+        {/* 5. PANDUAN SEMASA TIADA TALIAN INTERNET (OFFLINE & BETA SYNC)  */}
+        {/* ============================================================== */}
+        <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+            <span className="bg-sky-50 text-sky-600 p-2.5 rounded-2xl">
+              <Smartphone size={22} />
+            </span>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-sky-600 block">SOP Kontigensi</span>
+                <span className="text-[9px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-300">
+                  Beta
+                </span>
+              </div>
+              <h2 className="text-base font-black text-slate-800">Panduan Luar Talian (Tiada Internet)</h2>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Sekiranya kutipan zakat diadakan di kawasan kariah yang mempunyai isyarat rangkaian telefon yang lemah atau tiada internet langsung, amil mempunyai dua kaedah operasi:
+          </p>
+
+          <div className="space-y-3 text-xs">
+            {/* Kaedah 1: Simpan Galeri */}
+            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-slate-800 text-xs">
+                <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-black">A</span>
+                <span>Kaedah 1: Ambil Gambar ke Galeri Telefon (Paling Selamat)</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed pl-7">
+                Amil boleh mengambil gambar resit fizikal menggunakan kamera telefon biasa dan menyimpannya di dalam galeri telefon terlebih dahulu. Apabila kembali mendapat liputan internet, buka aplikasi dan gunakan tab <strong>&ldquo;Dari Galeri&rdquo;</strong> untuk melaraskan dan memproses imbasan OCR.
+              </p>
+            </div>
+
+            {/* Kaedah 2: Pengimbas Luar Talian Auto-Sync */}
+            <div className="p-4 rounded-2xl border border-sky-200 bg-sky-50/50 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-sky-950 text-xs">
+                <span className="w-5 h-5 rounded-full bg-sky-200 text-sky-800 flex items-center justify-center text-[10px] font-black">B</span>
+                <span>Kaedah 2: Pengimbas Luar Talian &amp; Auto-Sync (Eksperimental / Beta)</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed pl-7">
+                Amil boleh terus membuka kamera pengimbas di dalam aplikasi. Sekiranya tiada internet dikesan, amil menyemak gambar dan mengesahkan nombor resit/muzakki secara manual. Data resit akan disimpan sementara di dalam memori peranti, dan sistem akan <strong>menyelaraskan secara automatik (*auto-sync*)</strong> rekod tersebut ke pangkalan data sebaik sahaja sambungan internet pulih.
+              </p>
+            </div>
+          </div>
+        </section>
+
       </div>
     </div>
   );

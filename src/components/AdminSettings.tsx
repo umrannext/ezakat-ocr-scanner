@@ -357,14 +357,9 @@ export default function AdminSettings() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end bg-white/70 backdrop-blur-xs p-4 rounded-2xl border border-amber-200/50">
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
-                Harga 1 Gram Emas ($)
-              </label>
-              <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                Boleh Adjust
-              </span>
-            </div>
+            <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block mb-1">
+              Harga 1 Gram Emas ($)
+            </label>
             <div className="relative">
               <span className="absolute left-3.5 top-3 font-bold text-slate-400 text-sm">$</span>
               <input 

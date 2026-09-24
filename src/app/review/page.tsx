@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Tesseract from 'tesseract.js';
 import { 
   Loader2, CheckCircle2, AlertCircle, Save, ArrowLeft, 
-  Sparkles, Plus, Minus, FileText, Check, Zap 
+  Sparkles, Plus, Minus, FileText, Check, Zap, WifiOff 
 } from 'lucide-react';
 import { 
   detectPaperColorFromImage, 
@@ -16,6 +16,7 @@ import {
   extractStandardizedPaymentDate,
   PaperColorResult 
 } from '@/lib/ocr-helper';
+import { saveOfflineReceipt } from '@/lib/offline-storage';
 
 interface DetectionInfo {
   code: 'DW' | 'CS' | '';
@@ -125,6 +126,22 @@ export default function ReviewPage() {
   }, [router, riceTypes]);
 
   const [extracted, setExtracted] = useState(false);
+  const [isOfflineDetected, setIsOfflineDetected] = useState(false);
+  const [ocrOfflineNote, setOcrOfflineNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      setIsOfflineDetected(!navigator.onLine);
+      const setOnline = () => setIsOfflineDetected(false);
+      const setOffline = () => setIsOfflineDetected(true);
+      window.addEventListener('online', setOnline);
+      window.addEventListener('offline', setOffline);
+      return () => {
+        window.removeEventListener('online', setOnline);
+        window.removeEventListener('offline', setOffline);
+      };
+    }
+  }, []);
   
   const extractData = async (base64Image: string) => {
     if (extracted || riceTypes.length === 0) return;
@@ -228,8 +245,12 @@ export default function ReviewPage() {
         paymentDate: extDate
       }));
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Ralat OCR:", error);
+      const offline = typeof navigator !== 'undefined' ? !navigator.onLine : false;
+      if (offline || error?.message?.includes('Network') || error?.message?.includes('fetch')) {
+        setOcrOfflineNote("Mod Luar Talian (Beta): Pengecaman automatik luar talian memerlukan internet untuk muat turun modul kali pertama. Sila semak gambar resit di atas dan isi Nombor Resit secara manual.");
+      }
     } finally {
       setIsExtracting(false);
     }
@@ -327,27 +348,27 @@ export default function ReviewPage() {
 
       const finalIcNumber = isQuickMode ? null : (formData.icNumber || null);
 
-      const res = await fetch('/api/receipts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          payerName: finalPayerName,
-          icNumber: finalIcNumber,
-          isQuickMode,
-          riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
-          totalAmount: parseFloat(totalAmount),
-          zakatType: formData.zakatType,
-          imageUrl: compressedThumb
-        })
-      });
-      
-      const data = await res.json();
+      const payload = {
+        ...formData,
+        payerName: finalPayerName,
+        icNumber: finalIcNumber,
+        isQuickMode,
+        isWakalah,
+        riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
+        totalAmount: parseFloat(totalAmount),
+        zakatType: formData.zakatType,
+        imageUrl: compressedThumb
+      };
 
-      if (res.ok && data.success) {
+      const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+      // KES 1: Mod Luar Talian jika tiada internet
+      if (!isOnline) {
+        saveOfflineReceipt(payload);
         sessionStorage.removeItem('scannedImage');
+        alert("📴 MOD LUAR TALIAN (BETA)\n\nTiada sambungan internet dikesan. Rekod resit ini telah disimpan dengan selamat di dalam peranti anda.\n\nSistem akan memuat naik (auto-sync) rekod ini ke pangkalan data secara automatik sebaik sahaja talian internet kembali pulih.");
+        
         if (isQuickMode && formData.zakatType === 'FITRAH') {
-          // Dalam mod Quick Scan arkib, terus bawa semula ke kamera untuk resit seterusnya!
           sessionStorage.setItem('scanQuickMode', 'true');
           sessionStorage.setItem('scanReceiptType', 'FITRAH');
           router.push('/scan');
@@ -356,8 +377,50 @@ export default function ReviewPage() {
           router.push('/');
           router.refresh();
         }
-      } else {
-        alert(data.error || "Gagal menyimpan rekod data. Sila semak maklumat resit.");
+        setIsSaving(false);
+        return;
+      }
+
+      // KES 2: Sambungan biasa ke pangkalan data
+      try {
+        const res = await fetch('/api/receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          sessionStorage.removeItem('scannedImage');
+          if (isQuickMode && formData.zakatType === 'FITRAH') {
+            sessionStorage.setItem('scanQuickMode', 'true');
+            sessionStorage.setItem('scanReceiptType', 'FITRAH');
+            router.push('/scan');
+          } else {
+            sessionStorage.setItem('scanQuickMode', 'false');
+            router.push('/');
+            router.refresh();
+          }
+        } else {
+          alert(data.error || "Gagal menyimpan rekod data. Sila semak maklumat resit.");
+        }
+      } catch (networkErr: any) {
+        // KES 3: Talian terputus semasa penghantaran (Fallback ke Offline Storage)
+        console.warn("Rangkaian terputus, disimpan ke peranti:", networkErr);
+        saveOfflineReceipt(payload);
+        sessionStorage.removeItem('scannedImage');
+        alert("📴 ISYARAT TERPUTUS (MOD LUAR TALIAN BETA)\n\nSambungan internet terputus semasa menyimpan. Rekod telah disimpan dengan selamat di dalam peranti dan akan diselaraskan (auto-sync) sebaik sahaja isyarat internet dikesan.");
+
+        if (isQuickMode && formData.zakatType === 'FITRAH') {
+          sessionStorage.setItem('scanQuickMode', 'true');
+          sessionStorage.setItem('scanReceiptType', 'FITRAH');
+          router.push('/scan');
+        } else {
+          sessionStorage.setItem('scanQuickMode', 'false');
+          router.push('/');
+          router.refresh();
+        }
       }
     } catch (error: any) {
       alert("Ralat sistem semasa memproses penyimpanan: " + (error?.message || "Sila cuba lagi"));
@@ -395,6 +458,19 @@ export default function ReviewPage() {
       </div>
 
       <div className="p-5 flex-1">
+        {/* Banner Mod Luar Talian jika Tiada Internet atau OCR Memerlukan Bantuan Manual */}
+        {(isOfflineDetected || ocrOfflineNote) && (
+          <div className="mb-4 bg-amber-500/10 border-2 border-amber-400/70 text-amber-950 p-3.5 rounded-2xl text-xs space-y-1.5 animate-in fade-in">
+            <div className="flex items-center gap-2 font-black text-amber-900">
+              <WifiOff size={16} className="text-amber-600 shrink-0" />
+              <span>Mod Luar Talian (Offline Beta) Aktif</span>
+            </div>
+            <p className="text-[11px] text-amber-800/90 leading-relaxed font-medium">
+              {ocrOfflineNote || "Tiada sambungan internet dikesan. Anda boleh menyemak butiran resit dan mengisi secara manual. Rekod akan disimpan ke peranti dan diselaraskan (auto-sync) ke pangkalan data sebaik talian dikesan."}
+            </p>
+          </div>
+        )}
+
         {/* Gambar Asal Resit */}
         {image && (
           <div className="mb-4 rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-slate-900 flex justify-center h-44 relative group">

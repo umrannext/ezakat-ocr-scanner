@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
+import OfflineSyncBanner from "@/components/OfflineSyncBanner";
 import { cookies } from "next/headers";
 import prisma from '@/lib/prisma';
 
@@ -43,6 +44,7 @@ export default async function RootLayout({
     <html lang="ms">
       <body className={`${font.className} bg-gray-100 text-slate-800 antialiased min-h-screen flex justify-center`}>
         <div className="w-full max-w-md bg-[#F8FAFC] min-h-screen shadow-2xl relative pb-20 overflow-x-hidden">
+          <OfflineSyncBanner />
           {children}
           <BottomNav userRole={userRole} />
         </div>
