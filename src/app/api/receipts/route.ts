@@ -91,9 +91,12 @@ export async function POST(req: Request) {
 
     const data = await req.json();
 
-    // 3. Sahkan Nombor Resit
+    // 3. Sahkan Nombor Resit & Nama Pembayar
     const receiptNumber = data.receiptNumber?.trim() || ('RZT-' + Math.floor(100000 + Math.random() * 900000));
-    const payerName = data.payerName?.trim() || 'Pembayar Zakat';
+    const payerName = data.isQuickMode 
+      ? (data.payerName?.trim() || 'Arkib Zakat Fitrah') 
+      : (data.payerName?.trim() || 'Pembayar Zakat');
+    const payerIcNumber = data.isQuickMode ? null : (data.icNumber?.trim() || null);
 
     // 4. Sahkan RiceTypeId (Pastikan wujud dalam DB atau null jika Zakat Harta)
     let validRiceTypeId: string | null = null;
@@ -142,8 +145,8 @@ export async function POST(req: Request) {
         zakatType: data.zakatType || 'FITRAH',
         riceTypeId: validRiceTypeId,
         amilId: user.id,
-        payerIcNumber: data.icNumber || null,
-        isVerified: Boolean(data.isVerified),
+        payerIcNumber: payerIcNumber,
+        isVerified: Boolean(data.isVerified && !data.isQuickMode),
         imageUrl: safeImageUrl,
         dependents: isNaN(dependents) ? 0 : dependents,
         paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
@@ -155,8 +158,8 @@ export async function POST(req: Request) {
         zakatType: data.zakatType || 'FITRAH',
         riceTypeId: validRiceTypeId,
         amilId: user.id,
-        payerIcNumber: data.icNumber || null,
-        isVerified: Boolean(data.isVerified),
+        payerIcNumber: payerIcNumber,
+        isVerified: Boolean(data.isVerified && !data.isQuickMode),
         imageUrl: safeImageUrl,
         dependents: isNaN(dependents) ? 0 : dependents,
         paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,

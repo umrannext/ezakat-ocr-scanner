@@ -20,6 +20,7 @@ export default function ScanPage() {
   const [receiptType, setReceiptType] = useState<'FITRAH' | 'HARTA'>('FITRAH');
   const [cropOrientation, setCropOrientation] = useState<'SQUARE' | 'LANDSCAPE'>('SQUARE');
   const [showTypeModal, setShowTypeModal] = useState<boolean>(true);
+  const [isQuickMode, setIsQuickMode] = useState<boolean>(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [mounted, setMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,12 +28,25 @@ export default function ScanPage() {
 
   useEffect(() => {
     setMounted(true);
-    // Semak sekiranya ada parameter jenis zakat daripada halaman sebelum
+    // Semak sekiranya ada parameter jenis zakat atau mod arkib daripada halaman sebelum
     const savedType = sessionStorage.getItem('scanReceiptType') as 'FITRAH' | 'HARTA' | null;
+    const savedQuick = sessionStorage.getItem('scanQuickMode') === 'true';
+    if (savedQuick) {
+      setIsQuickMode(true);
+    }
+
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const typeParam = urlParams?.get('type') as 'FITRAH' | 'HARTA' | null;
+    const quickParam = urlParams?.get('quick');
 
-    if (typeParam === 'FITRAH' || typeParam === 'HARTA') {
+    if (quickParam === 'true' || quickParam === '1') {
+      setIsQuickMode(true);
+      setReceiptType('FITRAH');
+      setCropOrientation('SQUARE');
+      sessionStorage.setItem('scanReceiptType', 'FITRAH');
+      sessionStorage.setItem('scanQuickMode', 'true');
+      setShowTypeModal(false);
+    } else if (typeParam === 'FITRAH' || typeParam === 'HARTA') {
       setReceiptType(typeParam);
       setCropOrientation(typeParam === 'HARTA' ? 'LANDSCAPE' : 'SQUARE');
       sessionStorage.setItem('scanReceiptType', typeParam);
@@ -83,6 +97,7 @@ export default function ScanPage() {
         const finalBase64 = reader.result as string;
         sessionStorage.setItem('scannedImage', finalBase64);
         sessionStorage.setItem('scanReceiptType', receiptType);
+        sessionStorage.setItem('scanQuickMode', isQuickMode ? 'true' : 'false');
         router.push('/review');
       };
       reader.readAsDataURL(compressed);
@@ -90,9 +105,10 @@ export default function ScanPage() {
       console.error("Ralat tangkap kamera terus:", err);
       sessionStorage.setItem('scannedImage', imageSrc);
       sessionStorage.setItem('scanReceiptType', receiptType);
+      sessionStorage.setItem('scanQuickMode', isQuickMode ? 'true' : 'false');
       router.push('/review');
     }
-  }, [webcamRef, router, receiptType]);
+  }, [webcamRef, router, receiptType, isQuickMode]);
 
   // Tukar Kamera Depan / Belakang
   const toggleCamera = () => {
@@ -244,6 +260,7 @@ export default function ScanPage() {
         const finalBase64 = reader.result as string;
         sessionStorage.setItem('scannedImage', finalBase64);
         sessionStorage.setItem('scanReceiptType', receiptType);
+        sessionStorage.setItem('scanQuickMode', isQuickMode ? 'true' : 'false');
         router.push('/review');
       };
       reader.readAsDataURL(compressed);
@@ -296,17 +313,19 @@ export default function ScanPage() {
             </p>
 
             <div className="space-y-3">
-              {/* Pilihan 1: Zakat Fitrah */}
+              {/* Pilihan 1: Zakat Fitrah Biasa */}
               <button
                 type="button"
                 onClick={() => {
                   setReceiptType('FITRAH');
                   setCropOrientation('SQUARE');
+                  setIsQuickMode(false);
                   sessionStorage.setItem('scanReceiptType', 'FITRAH');
+                  sessionStorage.setItem('scanQuickMode', 'false');
                   setShowTypeModal(false);
                 }}
                 className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 group active:scale-[0.98] transition-all ${
-                  receiptType === 'FITRAH'
+                  receiptType === 'FITRAH' && !isQuickMode
                     ? 'bg-teal-500/20 border-teal-400/80 shadow-lg shadow-teal-500/10'
                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-teal-500/40'
                 }`}
@@ -317,14 +336,14 @@ export default function ScanPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-extrabold text-white">Zakat Fitrah</h3>
-                    {receiptType === 'FITRAH' && (
+                    {receiptType === 'FITRAH' && !isQuickMode && (
                       <span className="text-[10px] font-bold text-teal-300 bg-teal-500/30 px-2 py-0.5 rounded-full border border-teal-400/30">
                         Aktif
                       </span>
                     )}
                   </div>
                   <p className="text-[11px] text-teal-300/80 font-medium truncate mt-0.5">
-                    Resit Beras Wangi (DW) & Beras Siam (CS)
+                    Mod Biasa (Resit DW &amp; CS • Penuh)
                   </p>
                 </div>
               </button>
@@ -335,7 +354,9 @@ export default function ScanPage() {
                 onClick={() => {
                   setReceiptType('HARTA');
                   setCropOrientation('LANDSCAPE');
+                  setIsQuickMode(false);
                   sessionStorage.setItem('scanReceiptType', 'HARTA');
+                  sessionStorage.setItem('scanQuickMode', 'false');
                   setShowTypeModal(false);
                 }}
                 className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 group active:scale-[0.98] transition-all ${
@@ -358,6 +379,46 @@ export default function ScanPage() {
                   </div>
                   <p className="text-[11px] text-amber-300/80 font-medium truncate mt-0.5">
                     Borang A (Wang Simpanan, Emas, Perniagaan)
+                  </p>
+                </div>
+              </button>
+
+              {/* Pilihan 3: Mod Pantas Arkib (Quick Scan Khas Resit Lama Fitrah) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setReceiptType('FITRAH');
+                  setCropOrientation('SQUARE');
+                  setIsQuickMode(true);
+                  sessionStorage.setItem('scanReceiptType', 'FITRAH');
+                  sessionStorage.setItem('scanQuickMode', 'true');
+                  setShowTypeModal(false);
+                }}
+                className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 group active:scale-[0.98] transition-all ${
+                  isQuickMode && receiptType === 'FITRAH'
+                    ? 'bg-amber-500/25 border-amber-400 shadow-xl shadow-amber-500/20'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-amber-400/50'
+                }`}
+              >
+                <div className="w-12 h-12 rounded-xl bg-amber-500/30 border border-amber-400/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
+                  ⚡
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
+                      <span>Quick Scan</span>
+                      <span className="text-[10px] font-black text-amber-950 bg-amber-400 px-2 py-0.5 rounded-full">
+                        Arkib Pukal
+                      </span>
+                    </h3>
+                    {isQuickMode && receiptType === 'FITRAH' && (
+                      <span className="text-[10px] font-bold text-amber-300 bg-amber-500/30 px-2 py-0.5 rounded-full border border-amber-400/30">
+                        Aktif
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-amber-200/90 font-medium truncate mt-0.5">
+                    Khas resit fitrah lama (Abaikan nama, IC &amp; tarikh)
                   </p>
                 </div>
               </button>
@@ -578,18 +639,24 @@ export default function ScanPage() {
                 <X size={22} />
               </button>
               
-              {/* Badge Pemilih Jenis Zakat (Klik untuk Buka Pop-up Pilihan Semula) */}
+              {/* Badge Pemilih Jenis Zakat / Mod Arkib */}
               <button
                 type="button"
                 onClick={() => setShowTypeModal(true)}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border backdrop-blur-md text-xs font-black shadow-lg transition-all active:scale-95 ${
-                  receiptType === 'HARTA'
-                    ? 'bg-amber-500/25 border-amber-400/70 text-amber-300 hover:bg-amber-500/35'
-                    : 'bg-teal-500/25 border-teal-400/70 text-teal-300 hover:bg-teal-500/35'
+                  isQuickMode && receiptType === 'FITRAH'
+                    ? 'bg-amber-500/30 border-amber-400 text-amber-300 hover:bg-amber-500/40'
+                    : receiptType === 'HARTA'
+                      ? 'bg-amber-500/25 border-amber-400/70 text-amber-300 hover:bg-amber-500/35'
+                      : 'bg-teal-500/25 border-teal-400/70 text-teal-300 hover:bg-teal-500/35'
                 }`}
-                title="Klik untuk menukar jenis zakat"
+                title="Klik untuk menukar jenis zakat atau mod arkib"
               >
-                <span>{receiptType === 'HARTA' ? '🪙 Zakat Harta' : '🌾 Zakat Fitrah'}</span>
+                <span>
+                  {isQuickMode && receiptType === 'FITRAH'
+                    ? '⚡ Quick Scan (Arkib)'
+                    : (receiptType === 'HARTA' ? '🪙 Zakat Harta' : '🌾 Zakat Fitrah')}
+                </span>
                 <span className="text-[10px] text-white/70">▾</span>
               </button>
 
@@ -627,6 +694,38 @@ export default function ScanPage() {
                 <span>Dari Galeri</span>
               </button>
             </div>
+
+            {/* TOGGLE CEPAT MOD ARKIB BILA DALAM ZAKAT FITRAH */}
+            {receiptType === 'FITRAH' && (
+              <div className="flex items-center justify-between bg-black/60 border border-white/15 px-3.5 py-1.5 rounded-2xl max-w-xs mx-auto w-full backdrop-blur-md transition-all">
+                <div className="flex items-center gap-2">
+                  <Zap size={13} className={isQuickMode ? 'text-amber-400 fill-amber-400' : 'text-slate-400'} />
+                  <div>
+                    <span className="text-[11px] font-extrabold text-white block leading-none">
+                      Mod Pantas Arkib
+                    </span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">
+                      {isQuickMode ? 'Nama, IC & Tarikh dilumpuhkan' : 'Khas resit lama jika perlu'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isQuickMode;
+                    setIsQuickMode(next);
+                    sessionStorage.setItem('scanQuickMode', next ? 'true' : 'false');
+                  }}
+                  className={`text-[10px] font-black px-2.5 py-1 rounded-xl border transition-all active:scale-95 ${
+                    isQuickMode
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                      : 'bg-white/10 text-slate-300 border-white/20 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  {isQuickMode ? 'ON ✓' : 'OFF'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Area Kamera Langsung dengan Petak Panduan Luas */}
@@ -681,9 +780,11 @@ export default function ScanPage() {
 
               {/* Arahan Ringkas & Jelas */}
               <p className="text-white text-xs font-semibold bg-black/70 px-4 py-2 rounded-full absolute bottom-[16%] shadow-lg border border-white/15 backdrop-blur-md text-center max-w-[85%]">
-                {receiptType === 'HARTA'
-                  ? 'Halakan resit zakat harta memanjang. Pastikan nombor 5-angka merah di atas kanan berada dalam petak.'
-                  : 'Halakan resit zakat fitrah. Pastikan kod DW/CS dan nombor 6-angka berada dalam petak.'}
+                {isQuickMode && receiptType === 'FITRAH'
+                  ? '⚡ Mod Pantas Arkib: Halakan resit zakat fitrah lama. Pastikan kod DW/CS dan nombor 6-angka dalam petak.'
+                  : (receiptType === 'HARTA'
+                      ? 'Halakan resit zakat harta memanjang. Pastikan nombor 5-angka merah di atas kanan berada dalam petak.'
+                      : 'Halakan resit zakat fitrah. Pastikan kod DW/CS dan nombor 6-angka berada dalam petak.')}
               </p>
             </div>
           </div>

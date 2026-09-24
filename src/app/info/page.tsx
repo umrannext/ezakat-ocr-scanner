@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   BookOpen, Smartphone, Zap, ShieldCheck, ListOrdered, 
-  Camera, Save, ArrowLeft, FileText, CheckCircle2 
+  Camera, Save, ArrowLeft, FileText, CheckCircle2, AlertTriangle, Archive
 } from 'lucide-react';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -168,7 +168,77 @@ export default async function InfoPage() {
         </section>
 
         {/* ============================================================== */}
-        {/* 3. PANDUAN PENGGUNAAN SISTEM OLEH AMIL                          */}
+        {/* 3. PANDUAN KHAS: MOD PANTAS ARKIB (QUICK SCAN)                 */}
+        {/* ============================================================== */}
+        <section className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-slate-50 rounded-3xl p-6 shadow-sm border-2 border-amber-400/60 space-y-4">
+          <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="bg-amber-500 text-slate-950 p-2.5 rounded-2xl shadow-md shadow-amber-500/20">
+                <Zap size={22} className="fill-current" />
+              </span>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 block">Khas Pengarkiban Sahaja</span>
+                <h2 className="text-base font-black text-slate-800">⚡ Mod Pantas Arkib (Quick Scan)</h2>
+              </div>
+            </div>
+            <span className="text-[10px] font-black bg-amber-400 text-amber-950 px-2.5 py-1 rounded-full border border-amber-500/30">
+              Khas Resit Lama
+            </span>
+          </div>
+
+          {/* Kotak Amaran Penting */}
+          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex items-start gap-3 text-amber-950">
+            <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs space-y-1">
+              <strong className="block font-bold text-amber-900 text-sm">
+                PERINGATAN PENTING: Jika Perlu Sahaja (Bukan Untuk Kegunaan Harian Biasa)
+              </strong>
+              <p className="leading-relaxed text-amber-800">
+                Semasa kutipan zakat harian biasa bersama para pembayar, amil <strong>wajib</strong> merekodkan nama penuh dan nombor kad pintar sebagai amanah dan rujukan audit rasmi. 
+              </p>
+              <p className="leading-relaxed text-amber-800">
+                Mod ini dicipta <strong>hanya jika perlu</strong> bagi tujuan mendigitalkan lambakan resit-resit Zakat Fitrah arkib tahun-tahun terdahulu secara pukal (<em>bulk historical archive</em>), di mana butiran nama/IC tidak lagi diperlukan atau telah pudar.
+              </p>
+            </div>
+          </div>
+
+          {/* Cara Kerja Mod Pantas Arkib */}
+          <div className="space-y-2.5 text-xs text-slate-600">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Archive size={16} className="text-amber-600" />
+              <span>Tingkah Laku Sistem Dalam Mod Pantas:</span>
+            </h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px]">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                <span className="font-bold text-slate-700 block text-xs">Medan Dilumpuhkan (Greyed Out):</span>
+                <ul className="list-disc list-inside space-y-1 text-slate-500">
+                  <li><strong>Nombor Kad Pintar:</strong> Ditutup (Tak Perlu Diisi).</li>
+                  <li><strong>Nama Pembayar:</strong> Ditutup (Arkib Zakat Fitrah).</li>
+                  <li><strong>Tarikh Bayaran:</strong> Ditutup (Tak Perlu Diisi).</li>
+                  <li><strong>Checkbox Wakalah:</strong> Disembunyikan.</li>
+                </ul>
+              </div>
+
+              <div className="bg-white p-3 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-2xs space-y-1">
+                <span className="font-bold text-emerald-800 block text-xs">Medan Wajib Disahkan:</span>
+                <ul className="list-disc list-inside space-y-1 text-emerald-700">
+                  <li><strong>Nombor Resit:</strong> DW / CS + 6 angka.</li>
+                  <li><strong>Tahun Zakat:</strong> Tahun Hijrah arkib (cth: 1445H).</li>
+                  <li><strong>Jenis Beras:</strong> Wangi ($2.84) / Siam ($1.93).</li>
+                  <li><strong>Bilangan Muzakki:</strong> Jumlah tanggungan.</li>
+                </ul>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 bg-slate-100 p-2.5 rounded-xl border border-slate-200">
+              💡 <strong>Aliran Berterusan:</strong> Sebaik sahaja menekan <em>&ldquo;Simpan &amp; Imbas Seterusnya ⚡&rdquo;</em>, sistem akan menyimpan rekod arkib dan segera membuka kembali kamera tanpa keluar dari mod pantas, membolehkan puluhan resit lama diimbas berturut-turut.
+            </p>
+          </div>
+        </section>
+
+        {/* ============================================================== */}
+        {/* 4. PANDUAN PENGGUNAAN SISTEM OLEH AMIL                          */}
         {/* ============================================================== */}
         <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
           <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
@@ -188,9 +258,9 @@ export default async function InfoPage() {
                 1
               </div>
               <div>
-                <h3 className="text-xs font-bold text-slate-800">Pilih Mod: Kamera Terus atau Dari Galeri</h3>
+                <h3 className="text-xs font-bold text-slate-800">Pilih Jenis Resit Melalui Pop-up</h3>
                 <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                  Togol pilihan <strong>🌾 Fitrah (Segi Empat)</strong> atau <strong>🪙 Harta (Lanskap)</strong> untuk menyesuaikan petak panduan neon pengimbas.
+                  Pilih sama ada <strong>🌾 Zakat Fitrah</strong> (Beras DW/CS), <strong>🪙 Zakat Harta</strong> (5-angka merah memanjang), atau <strong>⚡ Mod Pantas Arkib</strong> (jika mengarkibkan resit lama).
                 </p>
               </div>
             </div>
@@ -200,9 +270,9 @@ export default async function InfoPage() {
                 <Camera size={16} />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-slate-800">Imbas Resit Fizikal</h3>
+                <h3 className="text-xs font-bold text-slate-800">Imbas Resit Fizikal (Kamera atau Galeri)</h3>
                 <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                  Pastikan resit diletakkan rata di bawah pencahayaan yang mencukupi agar nombor bilangan dan butiran pembayar jelas dibaca.
+                  Togol antara <strong>Imbas Terus Kamera</strong> untuk tangkapan pantas satu ketikan, atau <strong>Dari Galeri</strong> dengan alatan zum dan putaran bagi melaraskan resit.
                 </p>
               </div>
             </div>
@@ -214,7 +284,7 @@ export default async function InfoPage() {
               <div>
                 <h3 className="text-xs font-bold text-slate-800">Semak Pengekstrakan AI &amp; Sahkan</h3>
                 <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                  AI akan mengekstrak nombor resit dan maklumat pembayar. Amil boleh membetulkan data sebelum menekan <strong>Hantar &amp; Sah</strong>.
+                  AI secara automatik menukar angka bertulis Jawi ke nombor Roman dan mengisi medan berkenaan. Jika bayaran dibuat melalui wakil, tandakan kotak <strong>Wakalah</strong>.
                 </p>
               </div>
             </div>
@@ -226,7 +296,7 @@ export default async function InfoPage() {
               <div>
                 <h3 className="text-xs font-bold text-slate-800">Penyimpanan &amp; Eksport Laporan</h3>
                 <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                  Salinan rekod disimpan dalam pangkalan data dan imej dimampatkan untuk rujukan pantas. Pentadbir boleh mengeksport laporan ke format fail CSV/Excel.
+                  Rekod disimpan ke pangkalan data beserta imej yang dimampatkan secara cekap. Pentadbir boleh memuat turun laporan kutipan dalam format Excel/CSV atau menguruskan amil secara pukal.
                 </p>
               </div>
             </div>

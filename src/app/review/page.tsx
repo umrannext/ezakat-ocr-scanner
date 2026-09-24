@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Tesseract from 'tesseract.js';
 import { 
   Loader2, CheckCircle2, AlertCircle, Save, ArrowLeft, 
-  Sparkles, Plus, Minus, FileText, Check 
+  Sparkles, Plus, Minus, FileText, Check, Zap 
 } from 'lucide-react';
 import { 
   detectPaperColorFromImage, 
@@ -36,6 +36,12 @@ export default function ReviewPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isWakalah, setIsWakalah] = useState(false);
+  const [isQuickMode, setIsQuickMode] = useState(false);
+  
+  useEffect(() => {
+    const qm = typeof window !== 'undefined' && sessionStorage.getItem('scanQuickMode') === 'true';
+    if (qm) setIsQuickMode(true);
+  }, []);
   
   const [riceTypes, setRiceTypes] = useState<any[]>([
     { id: 'bf3a55f9-4fec-40b3-b690-3136f8b6b71d', code: 'B_SIAM_1447H', name: 'Beras Siam', price: 1.93, activeYear: '1447H' },
@@ -313,9 +319,13 @@ export default function ReviewPage() {
         }
       }
 
-      const finalPayerName = isWakalah
-        ? (formData.payerName ? (formData.payerName.toLowerCase().includes('wakalah') ? formData.payerName : `${formData.payerName} (Wakalah)`) : 'Wakalah')
-        : (formData.payerName || 'Pembayar Zakat');
+      const finalPayerName = isQuickMode
+        ? 'Arkib Zakat Fitrah'
+        : (isWakalah
+            ? (formData.payerName ? (formData.payerName.toLowerCase().includes('wakalah') ? formData.payerName : `${formData.payerName} (Wakalah)`) : 'Wakalah')
+            : (formData.payerName || 'Pembayar Zakat'));
+
+      const finalIcNumber = isQuickMode ? null : (formData.icNumber || null);
 
       const res = await fetch('/api/receipts', {
         method: 'POST',
@@ -323,6 +333,8 @@ export default function ReviewPage() {
         body: JSON.stringify({
           ...formData,
           payerName: finalPayerName,
+          icNumber: finalIcNumber,
+          isQuickMode,
           riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
           totalAmount: parseFloat(totalAmount),
           zakatType: formData.zakatType,
@@ -334,8 +346,16 @@ export default function ReviewPage() {
 
       if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
-        router.push('/');
-        router.refresh();
+        if (isQuickMode && formData.zakatType === 'FITRAH') {
+          // Dalam mod Quick Scan arkib, terus bawa semula ke kamera untuk resit seterusnya!
+          sessionStorage.setItem('scanQuickMode', 'true');
+          sessionStorage.setItem('scanReceiptType', 'FITRAH');
+          router.push('/scan');
+        } else {
+          sessionStorage.setItem('scanQuickMode', 'false');
+          router.push('/');
+          router.refresh();
+        }
       } else {
         alert(data.error || "Gagal menyimpan rekod data. Sila semak maklumat resit.");
       }
@@ -531,15 +551,83 @@ export default function ReviewPage() {
             </button>
           </div>
 
-          {/* TARIKH PEMBAYARAN */}
+          {/* QUICK SCAN TOGGLE BANNER (KHAS RESIT ZAKAT FITRAH LAMA) */}
+          {formData.zakatType === 'FITRAH' && (
+            <div className={`rounded-2xl p-3.5 border transition-all ${
+              isQuickMode 
+                ? 'bg-amber-500/10 border-amber-300 text-amber-950 shadow-sm' 
+                : 'bg-slate-50 border-slate-200 text-slate-700'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${
+                    isQuickMode ? 'bg-amber-500 text-slate-950 shadow-sm' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    ⚡
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-xs font-black">Mod Pantas Arkib (Quick Scan)</h4>
+                      {isQuickMode && (
+                        <span className="text-[9px] font-black text-amber-950 bg-amber-400 px-1.5 py-0.5 rounded-md">
+                          Resit Lama
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {isQuickMode 
+                        ? 'Nama, IC & Tarikh dilumpuhkan (Hanya Tahun Zakat disimpan)' 
+                        : 'Nyahaktif (Guna mod penuh dengan butiran pembayar)'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isQuickMode;
+                    setIsQuickMode(next);
+                    sessionStorage.setItem('scanQuickMode', next ? 'true' : 'false');
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-black text-xs transition-all active:scale-95 ${
+                    isQuickMode 
+                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20' 
+                      : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {isQuickMode ? 'AKTIF ✓' : 'Togol ON'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TARIKH PEMBAYARAN (DILUMPUHKAN JIKA MOD ARKIB) */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tarikh Pembayaran</label>
+            <div className="flex items-center justify-between ml-1">
+              <label className={`text-[11px] font-bold uppercase tracking-widest ${isQuickMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Tarikh Pembayaran
+              </label>
+              {isQuickMode && (
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
+                  Tak Perlu Diisi (Mod Arkib)
+                </span>
+              )}
+            </div>
             <input 
               type="date" 
+              disabled={isQuickMode}
               value={formData.paymentDate} 
               onChange={e => setFormData({...formData, paymentDate: e.target.value})}
-              className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm transition-all"
+              className={`w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all ${
+                isQuickMode 
+                  ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed select-none opacity-80' 
+                  : 'bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500'
+              }`}
             />
+            {isQuickMode && (
+              <p className="text-[10px] text-slate-400 ml-1">
+                Dalam mod arkib, tarikh harian tidak diperlukan — hanya <strong>Tahun Zakat</strong> di bawah yang direkodkan.
+              </p>
+            )}
           </div>
 
           {/* ========================================================= */}
@@ -758,9 +846,18 @@ export default function ReviewPage() {
                 </p>
               </div>
 
-              {/* TAHUN ZAKAT */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Tahun Zakat</label>
+              {/* TAHUN ZAKAT (KEKAL AKTIF & UTAMA UNTUK ARKIB RESIT) */}
+              <div className={`space-y-1.5 transition-all ${isQuickMode ? 'p-3.5 bg-amber-500/10 border-2 border-amber-400 rounded-2xl shadow-xs' : ''}`}>
+                <div className="flex items-center justify-between ml-1">
+                  <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">
+                    Tahun Zakat
+                  </label>
+                  {isQuickMode && (
+                    <span className="text-[10px] font-black text-amber-900 bg-amber-200 px-2 py-0.5 rounded-full border border-amber-300">
+                      Wajib Untuk Arkib
+                    </span>
+                  )}
+                </div>
                 <select 
                   value={effectiveYear} 
                   onChange={e => {
@@ -777,12 +874,21 @@ export default function ReviewPage() {
                       riceTypeId: matchedItem?.id || yearItems[0]?.id || prev.riceTypeId
                     }));
                   }}
-                  className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm appearance-none cursor-pointer"
+                  className={`w-full bg-white rounded-2xl px-4 py-3.5 outline-none shadow-sm appearance-none cursor-pointer ${
+                    isQuickMode 
+                      ? 'border-2 border-amber-400 text-amber-950 font-black text-base focus:ring-2 focus:ring-amber-500' 
+                      : 'border border-slate-200 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500'
+                  }`}
                 >
                   {availableYears.map(year => (
                     <option key={year as string} value={year as string}>{year as string}</option>
                   ))}
                 </select>
+                {isQuickMode && (
+                  <p className="text-[10px] text-amber-900 font-medium ml-1">
+                    Tahun Zakat Hijrah resit arkib yang sedang dimasukkan ke pangkalan data.
+                  </p>
+                )}
               </div>
 
               {/* PILIHAN JENIS BERAS (DW HIJAU vs CS KUNING) */}
@@ -930,57 +1036,82 @@ export default function ReviewPage() {
           {/* MEDAN BERSAMA: MAKLUMAT PEMBAYAR (KAD PINTAR & NAMA)       */}
           {/* ========================================================= */}
           
-          {/* NOMBOR KAD PINTAR (BERSIH TANPA BUTANG SAHKAN & TANPA JAWI) */}
+          {/* NOMBOR KAD PINTAR (DILUMPUHKAN JIKA MOD ARKIB) */}
           <div className="space-y-1.5 pt-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-              Nombor Kad Pintar
-            </label>
+            <div className="flex items-center justify-between ml-1">
+              <label className={`text-[11px] font-bold uppercase tracking-widest ${isQuickMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Nombor Kad Pintar
+              </label>
+              {isQuickMode && (
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
+                  Tak Perlu Diisi (Mod Arkib)
+                </span>
+              )}
+            </div>
             <input 
               type="text" 
-              placeholder="Contoh: 01-123456"
-              value={formData.icNumber} 
+              disabled={isQuickMode}
+              placeholder={isQuickMode ? "Dikosongkan (Mod Arkib Resit Lama)" : "Contoh: 01-123456"}
+              value={isQuickMode ? '' : formData.icNumber} 
               onChange={e => {
                 const roman = convertArabicIndicToRomanDigits(e.target.value);
                 setFormData({...formData, icNumber: roman, isVerified: false});
               }}
-              className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm transition-all placeholder:text-slate-300 placeholder:font-normal"
+              className={`w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all ${
+                isQuickMode 
+                  ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed select-none placeholder:text-slate-400 placeholder:italic opacity-80' 
+                  : 'bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-300'
+              }`}
             />
           </div>
 
-          {/* NAMA PEMBAYAR (TANPA JAWI & DILENGKAPI CHECKBOX WAKALAH) */}
+          {/* NAMA PEMBAYAR (DILUMPUHKAN JIKA MOD ARKIB) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between ml-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+              <label className={`text-[11px] font-bold uppercase tracking-widest ${isQuickMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 Nama Pembayar
               </label>
-              <span className="text-[11px] font-normal text-slate-400">
-                (Pilihan)
-              </span>
+              {isQuickMode ? (
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
+                  Tak Perlu Diisi (Mod Arkib)
+                </span>
+              ) : (
+                <span className="text-[11px] font-normal text-slate-400">
+                  (Pilihan)
+                </span>
+              )}
             </div>
             <div className="relative">
               <input 
                 type="text" 
-                placeholder="(Pilihan)"
-                value={formData.payerName} 
+                disabled={isQuickMode}
+                placeholder={isQuickMode ? "Arkib Zakat Fitrah (Dikosongkan)" : "(Pilihan)"}
+                value={isQuickMode ? '' : formData.payerName} 
                 onChange={e => setFormData({...formData, payerName: e.target.value})}
-                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-800 font-semibold focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none shadow-sm transition-all placeholder:text-slate-400 placeholder:font-normal"
+                className={`w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all ${
+                  isQuickMode 
+                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed select-none placeholder:text-slate-400 placeholder:italic opacity-80' 
+                    : 'bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-400'
+                }`}
               />
             </div>
 
-            {/* CHECKBOX WAKALAH */}
-            <div className="flex items-center gap-2 pt-1 ml-1">
-              <label className="relative flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isWakalah}
-                  onChange={e => setIsWakalah(e.target.checked)}
-                  className="w-4 h-4 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500 cursor-pointer accent-teal-600"
-                />
-                <span className="ml-2 text-xs font-bold text-slate-700">
-                  Wakalah <span className="text-[11px] font-medium text-slate-500">(Mewakili Pembayar Lain)</span>
-                </span>
-              </label>
-            </div>
+            {/* CHECKBOX WAKALAH (SEMBUNYI JIKA MOD ARKIB) */}
+            {!isQuickMode && (
+              <div className="flex items-center gap-2 pt-1 ml-1">
+                <label className="relative flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isWakalah}
+                    onChange={e => setIsWakalah(e.target.checked)}
+                    className="w-4 h-4 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500 cursor-pointer accent-teal-600"
+                  />
+                  <span className="ml-2 text-xs font-bold text-slate-700">
+                    Wakalah <span className="text-[11px] font-medium text-slate-500">(Mewakili Pembayar Lain)</span>
+                  </span>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* MEDAN ALAMAT JIKA ZAKAT HARTA (TANPA JAWI) */}
@@ -1056,11 +1187,17 @@ export default function ReviewPage() {
           className={`w-2/3 rounded-2xl py-4 font-bold shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-70 disabled:active:scale-100 ${
             formData.zakatType === 'HARTA'
               ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black shadow-amber-500/30'
-              : 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-teal-500/30'
+              : (isQuickMode 
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black shadow-amber-500/30'
+                  : 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-teal-500/30')
           }`}
         >
-          {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-          {isSaving ? 'Menyimpan...' : 'Hantar & Sah'}
+          {isSaving ? (
+            <Loader2 className="animate-spin" size={20} />
+          ) : (
+            isQuickMode ? <Zap size={20} className="fill-current" /> : <Save size={20} />
+          )}
+          {isSaving ? 'Menyimpan Arkib...' : (isQuickMode ? 'Simpan & Imbas Seterusnya ⚡' : 'Hantar & Sah')}
         </button>
       </div>
 
@@ -1070,17 +1207,23 @@ export default function ReviewPage() {
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl transform transition-all">
             <div className="text-center mb-6">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                formData.zakatType === 'HARTA' ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-600'
+                formData.zakatType === 'HARTA' 
+                  ? 'bg-amber-100 text-amber-700' 
+                  : (isQuickMode ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-600')
               }`}>
-                <AlertCircle size={32} />
+                {isQuickMode ? <Zap size={32} className="fill-current text-amber-600" /> : <AlertCircle size={32} />}
               </div>
               <h3 className="text-xl font-black text-slate-800">
-                {formData.zakatType === 'HARTA' ? 'Sahkan Rekod Zakat Harta' : 'Sahkan Rekod Zakat Fitrah'}
+                {formData.zakatType === 'HARTA' 
+                  ? 'Sahkan Rekod Zakat Harta' 
+                  : (isQuickMode ? 'Sahkan Arkib Zakat Fitrah' : 'Sahkan Rekod Zakat Fitrah')}
               </h3>
               <p className="text-sm text-slate-500 mt-2 font-medium">
                 {formData.zakatType === 'HARTA' 
                   ? 'Sila pastikan 5-angka nombor resit & jumlah bayaran adalah tepat.' 
-                  : 'Sila pastikan butiran resit adalah tepat sebelum disimpan.'}
+                  : (isQuickMode 
+                      ? 'Mod Pantas Arkib: Nama, Kad Pintar dan Tarikh tidak direkodkan. Hanya No. Resit, Tahun Hijrah & Muzakki disimpan.' 
+                      : 'Sila pastikan butiran resit adalah tepat sebelum disimpan.')}
               </p>
             </div>
             
@@ -1092,19 +1235,26 @@ export default function ReviewPage() {
                   {formData.zakatType === 'HARTA' && (
                     <span className="text-[10px] text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded ml-1 font-bold">5-Angka</span>
                   )}
+                  {isQuickMode && (
+                    <span className="text-[10px] text-amber-900 bg-amber-200 px-1.5 py-0.5 rounded ml-1 font-bold">Arkib</span>
+                  )}
                 </span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500 font-medium">Nama</span>
                 <div className="text-right">
                   <span className="font-bold text-slate-800 max-w-[160px] truncate block">
-                    {formData.payerName || 'Pembayar Zakat'}
+                    {isQuickMode ? 'Arkib Zakat Fitrah' : (formData.payerName || 'Pembayar Zakat')}
                   </span>
-                  {isWakalah && (
+                  {isQuickMode ? (
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
+                      Dikosongkan (Mod Arkib)
+                    </span>
+                  ) : (isWakalah && (
                     <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
                       Wakalah (Mewakili)
                     </span>
-                  )}
+                  ))}
                 </div>
               </div>
               
