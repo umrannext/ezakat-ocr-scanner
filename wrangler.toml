@@ -3,6 +3,11 @@ main = ".open-next/worker.js"
 compatibility_date = "2026-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "38fc8e5584b94006a34b07549d2287b9"
+localConnectionString = "postgresql://postgres.nudegfroiysxvmoyqaqh:MisiJuzw%40b2026@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
+
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"

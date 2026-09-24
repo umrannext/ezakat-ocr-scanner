@@ -1,9 +1,16 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Plus, Edit2, Loader2, Save, X } from 'lucide-react';
+import { Settings, RefreshCw, Plus, Edit2, Loader2, Save, X, Coins, Sparkles, CheckCircle2 } from 'lucide-react';
+
+const FALLBACK_RATES = [
+  { id: 'fb-1', name: 'Beras Siam', price: 1.93, activeYear: '1447H', code: 'B_SIAM_1447H' },
+  { id: 'fb-2', name: 'Beras Wangi', price: 2.84, activeYear: '1447H', code: 'B_WANGI_1447H' },
+  { id: 'fb-3', name: 'Beras Siam', price: 1.90, activeYear: '1446H', code: 'B_SIAM_1446H' },
+  { id: 'fb-4', name: 'Beras Wangi', price: 2.80, activeYear: '1446H', code: 'B_WANGI_1446H' }
+];
 
 export default function AdminSettings() {
-  const [rates, setRates] = useState<any[]>([]);
+  const [rates, setRates] = useState<any[]>(FALLBACK_RATES);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   
@@ -15,32 +22,38 @@ export default function AdminSettings() {
   const [newSiam, setNewSiam] = useState('1.93');
   const [newWangi, setNewWangi] = useState('2.84');
   const [isAdding, setIsAdding] = useState(false);
-  const [goldPrice, setGoldPrice] = useState('0');
+  
+  const [goldPrice, setGoldPrice] = useState('115.00');
   const [isSavingGold, setIsSavingGold] = useState(false);
+  const [goldSavedMsg, setGoldSavedMsg] = useState(false);
 
   const fetchRates = async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/settings/rates');
       if (res.ok) {
-        setRates(await res.json());
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setRates(data);
+        }
       }
     } catch (e) {
-      console.error(e);
+      console.warn('Rates fetch fallback active:', e);
     }
     setIsLoading(false);
   };
 
-  
   const fetchGoldPrice = async () => {
     try {
       const res = await fetch('/api/settings/gold');
       if (res.ok) {
         const data = await res.json();
-        setGoldPrice(data.price.toString());
+        if (data.price && data.price > 0) {
+          setGoldPrice(data.price.toString());
+        }
       }
     } catch (e) {
-      console.error(e);
+      console.warn('Gold price fallback active:', e);
     }
   };
 
@@ -60,29 +73,34 @@ export default function AdminSettings() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message);
+        alert(data.message || 'Kadar berjaya diselaraskan!');
         fetchRates();
       } else {
-        alert(data.error);
+        alert(data.error || 'Ralat penyelarasan');
       }
     } catch (e) {
-      alert("Ralat semasa sync.");
+      alert("Ralat semasa sync kadar MORA.");
     }
     setIsSyncing(false);
   };
 
-  
   const handleSaveGold = async () => {
     setIsSavingGold(true);
+    setGoldSavedMsg(false);
     try {
       const res = await fetch('/api/settings/gold', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ price: parseFloat(goldPrice) })
       });
-      if (res.ok) alert("Harga Emas berjaya dikemaskini!");
+      if (res.ok) {
+        setGoldSavedMsg(true);
+        setTimeout(() => setGoldSavedMsg(false), 3000);
+      } else {
+        alert("Gagal mengemaskini harga emas");
+      }
     } catch (e) {
-      alert("Gagal mengemaskini harga emas");
+      alert("Ralat semasa menyimpan harga emas");
     }
     setIsSavingGold(false);
   };
@@ -97,9 +115,11 @@ export default function AdminSettings() {
       if (res.ok) {
         setEditingId(null);
         fetchRates();
+      } else {
+        alert("Gagal mengemaskini kadar");
       }
     } catch (e) {
-      alert("Gagal mengemaskini");
+      alert("Gagal mengemaskini kadar");
     }
   };
 
@@ -125,116 +145,129 @@ export default function AdminSettings() {
     setIsAdding(false);
   };
 
-  // Group by year
+  // Group rates by Hijrah year
   const grouped = rates.reduce((acc: any, rate: any) => {
-    if (!acc[rate.activeYear]) acc[rate.activeYear] = [];
-    acc[rate.activeYear].push(rate);
+    const yr = rate.activeYear || '1447H';
+    if (!acc[yr]) acc[yr] = [];
+    acc[yr].push(rate);
     return acc;
   }, {});
 
   return (
-    <div className="mt-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-3">
-          <div className="bg-slate-100 p-2.5 rounded-xl">
-            <Settings size={20} className="text-slate-600" />
-          </div>
-          <h2 className="font-bold text-slate-800 text-lg">Tetapan Kadar Zakat</h2>
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-2 rounded-full hover:bg-slate-200 transition-colors"
-          >
-            <Plus size={14} /> Tambah Tahun
-          </button>
-
-        </div>
-      </div>
-
-      
-      <div className="mb-8 bg-amber-50 p-6 rounded-3xl border border-amber-200">
-        <h3 className="text-lg font-bold text-amber-900 mb-2">Kadar Zakat Harta (Emas)</h3>
-        <p className="text-sm text-amber-700 mb-4">Sila kemaskini harga 1 gram emas (999) semasa. Nisab adalah bersamaan 85 gram emas.</p>
-        
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="text-xs font-bold text-amber-700 uppercase mb-1 block">Harga 1 Gram Emas ($)</label>
-            <input type="number" step="0.01" value={goldPrice} onChange={e => setGoldPrice(e.target.value)} className="w-full text-lg font-bold p-3 border-2 border-amber-200 rounded-xl focus:border-amber-400 outline-none" />
-          </div>
-          <div className="flex-1 bg-white p-3 rounded-xl border border-amber-200">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">Nisab Zakat Harta (85g)</label>
-            <div className="text-lg font-bold text-slate-800">${parseFloat(goldPrice || '0') > 0 ? (parseFloat(goldPrice) * 85).toFixed(2) : '0.00'}</div>
-          </div>
-          <button onClick={handleSaveGold} disabled={isSavingGold} className="bg-amber-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-amber-700 flex items-center gap-2">
-            {isSavingGold ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-            Simpan
-          </button>
-        </div>
-      </div>
-
-      {showAdd && (
-        <form onSubmit={handleAddYear} className="mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-bold text-slate-700">Tambah Tahun Baru</h3>
-            <button type="button" onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
-          </div>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Tahun</label>
-              <input required value={newYear} onChange={e=>setNewYear(e.target.value)} placeholder="Contoh: 1448H" className="w-full text-sm mt-1 p-2 border rounded-xl" />
+    <div className="space-y-6">
+      {/* 1. SEKSYEN KADAR ZAKAT FITRAH (BERAS) */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-teal-50 p-2.5 rounded-xl text-teal-600">
+              <Settings size={22} />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Beras Siam ($)</label>
-              <input required type="number" step="0.01" value={newSiam} onChange={e=>setNewSiam(e.target.value)} className="w-full text-sm mt-1 p-2 border rounded-xl" />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Beras Wangi ($)</label>
-              <input required type="number" step="0.01" value={newWangi} onChange={e=>setNewWangi(e.target.value)} className="w-full text-sm mt-1 p-2 border rounded-xl" />
+              <h2 className="font-black text-slate-800 text-lg leading-tight">Kadar Zakat Fitrah (Beras)</h2>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Kadar rasmi Brunei mengikut gred beras dan tahun Hijrah</p>
             </div>
           </div>
-          <button disabled={isAdding} type="submit" className="w-full bg-teal-600 text-white font-bold text-sm py-2 rounded-xl">
-            {isAdding ? 'Menyimpan...' : 'Simpan Kadar'}
-          </button>
-        </form>
-      )}
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-2 rounded-xl transition-colors active:scale-95 shadow-xs"
+            >
+              <Plus size={14} /> Tambah Tahun
+            </button>
+            <button 
+              onClick={handleSync}
+              disabled={isSyncing}
+              title="Sync kadar rasmi KHEU"
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors active:scale-95 shadow-xs"
+            >
+              <RefreshCw size={14} className={isSyncing ? 'animate-spin text-teal-600' : ''} /> Sync MORA
+            </button>
+          </div>
+        </div>
 
-      {isLoading ? (
-        <div className="text-center py-6"><Loader2 className="animate-spin text-slate-400 mx-auto" /></div>
-      ) : (
-        <div className="space-y-6">
-          {Object.keys(grouped).sort().reverse().map(year => (
-            <div key={year} className="border border-slate-100 rounded-2xl overflow-hidden">
-              <div className="bg-slate-50 px-4 py-2 border-b border-slate-100">
-                <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Tahun {year}</span>
+        {/* Modal / Form Tambah Tahun Baru */}
+        {showAdd && (
+          <form onSubmit={handleAddYear} className="mb-6 bg-slate-50 p-5 rounded-2xl border border-teal-200/60 shadow-xs animate-in fade-in duration-200">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Sparkles size={16} className="text-teal-600" />
+                Tambah Kadar Tahun Hijrah Baru
+              </h3>
+              <button type="button" onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X size={16}/>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tahun Hijrah</label>
+                <input required value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Cth: 1448H" className="w-full text-sm font-bold mt-1 p-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-400" />
               </div>
               <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Beras Siam ($)</label>
+                <input required type="number" step="0.01" value={newSiam} onChange={e => setNewSiam(e.target.value)} className="w-full text-sm font-bold mt-1 p-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-400" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Beras Wangi ($)</label>
+                <input required type="number" step="0.01" value={newWangi} onChange={e => setNewWangi(e.target.value)} className="w-full text-sm font-bold mt-1 p-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-400" />
+              </div>
+            </div>
+            <button disabled={isAdding} type="submit" className="w-full bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-bold text-sm py-3 rounded-xl shadow-sm hover:opacity-95 active:scale-98 transition-all">
+              {isAdding ? 'Menyimpan...' : 'Simpan Kadar Tahun Baru'}
+            </button>
+          </form>
+        )}
+
+        {/* Senarai Kadar Zakat Fitrah Mengikut Tahun */}
+        <div className="space-y-4">
+          {Object.keys(grouped).sort().reverse().map(year => (
+            <div key={year} className="border border-slate-200/70 rounded-2xl overflow-hidden bg-white shadow-xs">
+              <div className="bg-gradient-to-r from-teal-50 to-slate-50 px-4 py-2.5 border-b border-slate-100 flex justify-between items-center">
+                <span className="text-xs font-black text-teal-800 tracking-wide">TAHUN HIJRAH {year}</span>
+                {year === '1447H' && (
+                  <span className="bg-teal-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">
+                    Semasa
+                  </span>
+                )}
+              </div>
+              <div className="divide-y divide-slate-100">
                 {grouped[year].map((rate: any) => (
-                  <div key={rate.id} className="flex justify-between items-center p-4 border-b border-slate-50 last:border-0">
-                    <span className="font-semibold text-slate-700 text-sm">{rate.name}</span>
+                  <div key={rate.id} className="flex justify-between items-center p-4 hover:bg-slate-50/50 transition-colors">
+                    <div>
+                      <span className="font-bold text-slate-800 text-sm block">{rate.name}</span>
+                      <span className="text-[11px] text-slate-400 font-medium">1 Gantang / Seorang</span>
+                    </div>
                     <div className="flex items-center gap-3">
                       {editingId === rate.id ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-slate-400">$</span>
                           <input 
                             type="number" 
                             step="0.01"
                             value={editPrice}
                             onChange={(e) => setEditPrice(e.target.value)}
-                            className="w-20 text-sm border rounded-lg px-2 py-1 text-right focus:ring-1 focus:ring-teal-500 outline-none"
+                            className="w-20 text-sm font-bold border border-teal-400 rounded-lg px-2 py-1 text-right focus:ring-2 focus:ring-teal-400 outline-none"
+                            autoFocus
                           />
-                          <button onClick={() => saveEdit(rate.id)} className="text-teal-600 hover:text-teal-700 bg-teal-50 p-1.5 rounded-lg"><Save size={16}/></button>
-                          <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-lg"><X size={16}/></button>
+                          <button onClick={() => saveEdit(rate.id)} className="text-teal-700 hover:text-teal-800 bg-teal-100 p-2 rounded-lg transition-colors" title="Simpan">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-slate-700 bg-slate-100 p-2 rounded-lg transition-colors" title="Batal">
+                            <X size={16} />
+                          </button>
                         </div>
                       ) : (
-                        <>
-                          <span className="font-black text-teal-600">${rate.price.toFixed(2)}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-teal-600 text-base">
+                            ${Number(rate.price || 0).toFixed(2)}
+                          </span>
                           <button 
                             onClick={() => { setEditingId(rate.id); setEditPrice(rate.price.toString()); }}
-                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                            className="text-slate-400 hover:text-teal-600 p-1.5 hover:bg-teal-50 rounded-lg transition-colors"
+                            title="Edit Harga"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={15} />
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -243,7 +276,66 @@ export default function AdminSettings() {
             </div>
           ))}
         </div>
-      )}
+      </div>
+
+      {/* 2. SEKSYEN KADAR ZAKAT HARTA (EMAS & NISAB) */}
+      <div className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50 p-6 rounded-3xl border border-amber-200/80 shadow-sm relative overflow-hidden">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-amber-500 p-2.5 rounded-xl text-white shadow-xs">
+            <Coins size={22} />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-amber-950 leading-tight">Kadar Zakat Harta (Emas & Nisab)</h3>
+            <p className="text-xs text-amber-800/80 font-medium mt-0.5">
+              Nisab zakat harta di Brunei bersamaan 85 gram emas tulen (999).
+            </p>
+          </div>
+        </div>
+
+        {goldSavedMsg && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold p-3 rounded-xl flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            Harga emas berjaya disimpan dan nisab dikemaskini!
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end bg-white/70 backdrop-blur-xs p-4 rounded-2xl border border-amber-200/50">
+          <div>
+            <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block mb-1">
+              Harga 1 Gram Emas ($)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-3 font-bold text-slate-400 text-sm">$</span>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={goldPrice} 
+                onChange={e => setGoldPrice(e.target.value)} 
+                className="w-full text-base font-bold pl-8 pr-3 py-2.5 bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all" 
+                placeholder="Cth: 115.00"
+              />
+            </div>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              Nisab Zakat Harta (85g)
+            </label>
+            <div className="text-xl font-black text-amber-900 mt-1">
+              ${parseFloat(goldPrice || '0') > 0 ? (parseFloat(goldPrice) * 85).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+            </div>
+          </div>
+
+          <button 
+            onClick={handleSaveGold} 
+            disabled={isSavingGold} 
+            className="w-full bg-gradient-to-r from-amber-600 to-amber-700 text-white font-bold py-3 px-4 rounded-xl hover:from-amber-700 hover:to-amber-800 flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-amber-600/20"
+          >
+            {isSavingGold ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            Simpan Harga Emas
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

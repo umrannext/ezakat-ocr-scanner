@@ -15,24 +15,42 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    const cleanLoginId = loginId.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanLoginId || !cleanPassword) {
+      setError('Sila masukkan ID Pengguna dan Kata Laluan');
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loginId, password })
+        body: JSON.stringify({ loginId: cleanLoginId, password: cleanPassword })
       });
 
-      if (res.ok) {
-        router.push('/');
-        router.refresh();
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Gagal log masuk');
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        console.warn('Non-JSON response:', jsonErr);
       }
-    } catch(err) {
-      setError('Ralat sambungan');
+
+      if (res.ok && data?.success) {
+        // Navigasi penuh terus dengan kuki baru yang sah
+        window.location.href = '/';
+        return;
+      } else {
+        setError(data?.error || data?.details || (res.status === 401 ? 'ID Pengguna atau Kata Laluan tidak sah' : `Ralat pelayan (${res.status})`));
+        setLoading(false);
+      }
+    } catch(err: any) {
+      console.error('Fetch error:', err);
+      setError(err?.message ? `Ralat sambungan: ${err.message}` : 'Ralat sambungan rangkaian. Sila semak sambungan internet anda.');
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -59,7 +77,7 @@ export default function LoginPage() {
                 type="text" 
                 value={loginId}
                 onChange={e => setLoginId(e.target.value)}
-                placeholder="Contoh: AMIL-Z01-001"
+                placeholder="Contoh: admin atau AMIL-Z01-001"
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-slate-500 font-semibold focus:ring-2 focus:ring-teal-400 outline-none transition-all"
                 required
               />
@@ -74,6 +92,7 @@ export default function LoginPage() {
                 type="password" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                placeholder="Masukkan kata laluan"
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white font-semibold focus:ring-2 focus:ring-teal-400 outline-none transition-all"
                 required
               />
@@ -88,8 +107,14 @@ export default function LoginPage() {
             {loading ? 'Mengizinkan...' : 'Log Masuk'}
           </button>
         </form>
+
+        <div className="mt-5 bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            <span className="text-teal-300 font-semibold">Admin:</span> <code className="text-white font-mono">admin</code> | <span className="text-teal-300 font-semibold">Amil:</span> <code className="text-white font-mono">AMIL-Z01-001</code>
+          </p>
+        </div>
         
-        <div className="mt-6 text-center border-t border-white/10 pt-6">
+        <div className="mt-5 text-center border-t border-white/10 pt-5">
           <button onClick={() => router.push('/info')} className="text-teal-400 hover:text-teal-300 text-sm font-bold tracking-wide transition-colors">
             Panduan & Info Sistem →
           </button>

@@ -1,23 +1,40 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client/wasm';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 let client: PrismaClient | null = null;
 let currentPool: Pool | null = null;
 
+function resolveConnectionString(): string {
+  // 1. Dapatkan connectionString daripada Hyperdrive jika berada dalam runtime Cloudflare
+  try {
+    const { getCloudflareContext } = require('@opennextjs/cloudflare');
+    const ctx = getCloudflareContext();
+    if (ctx?.env?.HYPERDRIVE?.connectionString) {
+      return ctx.env.HYPERDRIVE.connectionString;
+    }
+  } catch (_) {}
+
+  // 2. Sandaran env tempatan / langsung
+  const conn = process.env.HYPERDRIVE_URL || process.env.DIRECT_URL || process.env.DATABASE_URL || '';
+  return conn.trim().replace(/^["']|["']$/g, '');
+}
+
 function createClient(): PrismaClient {
-  let connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL || '';
-  connectionString = connectionString.trim().replace(/^["']|["']$/g, '');
+  const connectionString = resolveConnectionString();
   if (!connectionString) {
-    throw new Error(`DATABASE_URL is missing in environment!`);
+    throw new Error(`DATABASE_URL or HYPERDRIVE is missing in environment!`);
   }
 
-  // Konfigurasi Pool mesra Cloudflare Workers & Supabase Supavisor
+  // Jika guna Hyperdrive (Cloudflare local proxy), SSL diuruskan oleh Hyperdrive
+  const isHyperdrive = connectionString.includes('127.0.0.1') || connectionString.includes('localhost') || connectionString.includes('hyperdrive');
+
   currentPool = new Pool({
     connectionString,
+    ssl: isHyperdrive ? false : { rejectUnauthorized: false },
     max: 1, // Had 1 sambungan setiap isolate Cloudflare Worker
     connectionTimeoutMillis: 8000,
-    idleTimeoutMillis: 4000, // Tutup sambungan terbiar lebih awal untuk elak soket terputus (stale socket)
+    idleTimeoutMillis: 4000,
   });
 
   currentPool.on('error', (err) => {
@@ -53,6 +70,10 @@ function isConnectionError(err: any): boolean {
     msg.includes('pool') ||
     msg.includes('too many clients') ||
     msg.includes('client has encountered a connection error') ||
+    msg.includes('certificate') ||
+    msg.includes('ssl') ||
+    msg.includes('reach') ||
+    msg.includes('handshake') ||
     code.startsWith('08') ||
     code.startsWith('57P')
   );
