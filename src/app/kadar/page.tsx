@@ -1,18 +1,16 @@
-import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import AdminSettings from '@/components/AdminSettings';
 
-
+export const dynamic = 'force-dynamic';
 
 export default async function KadarPage() {
   const cookieStore = await cookies();
   const userId = cookieStore.get('auth_token')?.value;
+  const role = cookieStore.get('auth_role')?.value;
 
   if (!userId) redirect('/login');
-
-  const admin = await prisma.user.findUnique({ where: { id: userId } });
-  if (admin?.role !== 'ADMIN') redirect('/');
+  if (role && role !== 'ADMIN') redirect('/');
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-[100px]">
@@ -22,9 +20,8 @@ export default async function KadarPage() {
       </div>
 
       <div className="p-5">
-        {/* Render the AdminSettings component. We wrap it in a slightly different style or let it render itself */}
         <div className="-mt-8">
-            <AdminSettings />
+          <AdminSettings />
         </div>
       </div>
     </div>
