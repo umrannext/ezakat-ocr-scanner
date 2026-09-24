@@ -88,7 +88,7 @@ export default async function Home() {
             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight leading-tight">
               Sistem OCR <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-500">
-                Resit Zakat Brunei
+                Resit Zakat Fitrah & Harta
               </span>
             </h1>
           </div>

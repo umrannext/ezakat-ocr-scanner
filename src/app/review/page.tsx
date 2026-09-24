@@ -420,7 +420,7 @@ export default function ReviewPage() {
                   ? 'bg-amber-100 text-amber-900 border-amber-300'
                   : 'bg-teal-50 text-teal-700 border-teal-200'
               }`}>
-                {formData.zakatType === 'HARTA' ? 'Kertas Putih • Lanskap' : 'Slip Potret • DW/CS'}
+                {formData.zakatType === 'HARTA' ? 'Kertas Putih • Lanskap' : 'Slip Segi Empat • DW/CS'}
               </span>
             </div>
 
@@ -443,7 +443,7 @@ export default function ReviewPage() {
                       {formData.zakatType === 'HARTA' ? 'Kertas Putih' : (detectionInfo.code || 'Fitrah')}
                     </p>
                     <p className="text-[10px] opacity-80">
-                      {formData.zakatType === 'HARTA' ? 'Memanjang (Landscape)' : (detectionInfo.paperColor?.label || 'Potret')}
+                      {formData.zakatType === 'HARTA' ? 'Memanjang (Landscape)' : (detectionInfo.paperColor?.label || 'Segi Empat Tepat')}
                     </p>
                   </div>
                 </div>

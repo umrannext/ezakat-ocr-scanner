@@ -16,9 +16,9 @@ export default function ScanPage() {
 
   // Pilihan Mod: 'camera' (Imbas Terus dari Kamera) | 'gallery' (Pilih & Selaras dari Galeri)
   const [scanMode, setScanMode] = useState<'camera' | 'gallery'>('camera');
-  // Pilihan Jenis Resit: 'FITRAH' (Potret, DW/CS) | 'HARTA' (Lanskap, 5-Angka Merah)
+  // Pilihan Jenis Resit: 'FITRAH' (Segi Empat Tepat / Square, DW/CS) | 'HARTA' (Lanskap Memanjang, 5-Angka Merah)
   const [receiptType, setReceiptType] = useState<'FITRAH' | 'HARTA'>('FITRAH');
-  const [cropOrientation, setCropOrientation] = useState<'PORTRAIT' | 'LANDSCAPE'>('PORTRAIT');
+  const [cropOrientation, setCropOrientation] = useState<'SQUARE' | 'LANDSCAPE'>('SQUARE');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [mounted, setMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -99,7 +99,7 @@ export default function ScanPage() {
       testImg.src = dataUrl;
       testImg.onload = () => {
         const isLandscape = testImg.naturalWidth > testImg.naturalHeight * 1.15;
-        setCropOrientation(isLandscape ? 'LANDSCAPE' : 'PORTRAIT');
+        setCropOrientation(isLandscape ? 'LANDSCAPE' : 'SQUARE');
         setReceiptType(isLandscape ? 'HARTA' : 'FITRAH');
         setAdjustImage(dataUrl);
         setScanMode('gallery');
@@ -118,7 +118,7 @@ export default function ScanPage() {
     img.onload = () => {
       const frame = containerRef.current;
       const fw = frame ? frame.clientWidth : 320;
-      const fh = frame ? frame.clientHeight : (cropOrientation === 'LANDSCAPE' ? 220 : 420);
+      const fh = frame ? frame.clientHeight : (cropOrientation === 'LANDSCAPE' ? 220 : fw);
 
       const scale = Math.min(fw / img.naturalWidth, fh / img.naturalHeight);
       setImgSize({
@@ -277,13 +277,13 @@ export default function ScanPage() {
             <div className="text-center">
               <h2 className="text-white font-bold text-sm tracking-wide">Penyelarasan Resit Galeri</h2>
               <p className="text-[11px] text-teal-400 font-medium">
-                {cropOrientation === 'LANDSCAPE' ? 'Format Memanjang (Zakat Harta)' : 'Format Potret (Zakat Fitrah)'}
+                {cropOrientation === 'LANDSCAPE' ? 'Format Memanjang (Zakat Harta)' : 'Format Segi Empat Tepat (Zakat Fitrah)'}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
               <button 
                 onClick={() => {
-                  const next = cropOrientation === 'LANDSCAPE' ? 'PORTRAIT' : 'LANDSCAPE';
+                  const next = cropOrientation === 'LANDSCAPE' ? 'SQUARE' : 'LANDSCAPE';
                   setCropOrientation(next);
                   setReceiptType(next === 'LANDSCAPE' ? 'HARTA' : 'FITRAH');
                 }}
@@ -292,9 +292,9 @@ export default function ScanPage() {
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
                     : 'bg-teal-500/20 text-teal-300 border-teal-500/40'
                 }`}
-                title="Tukar antara Lanskap dan Potret"
+                title="Tukar antara Lanskap dan Segi Empat"
               >
-                {cropOrientation === 'LANDSCAPE' ? '🪙 Lanskap' : '🌾 Potret'}
+                {cropOrientation === 'LANDSCAPE' ? '🪙 Lanskap' : '🌾 Segi Empat'}
               </button>
               <button 
                 onClick={resetAdjust}
@@ -310,7 +310,7 @@ export default function ScanPage() {
             <div 
               ref={containerRef}
               className={`rounded-2xl overflow-hidden relative border-2 ${
-                cropOrientation === 'LANDSCAPE' ? 'border-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.8)] w-[94%] max-w-[440px] aspect-[16/9]' : 'border-teal-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] w-[88%] max-w-[340px] aspect-[3/4]'
+                cropOrientation === 'LANDSCAPE' ? 'border-amber-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.8)] w-[94%] max-w-[440px] aspect-[16/9]' : 'border-teal-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.75)] w-[86%] max-w-[340px] aspect-square'
               } flex items-center justify-center bg-black/90 cursor-grab active:cursor-grabbing touch-none transition-all duration-200`}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
@@ -488,7 +488,7 @@ export default function ScanPage() {
                 <span>Dari Galeri</span>
               </button>
             </div>
-            {/* TOGGLE PILIHAN JENIS ZAKAT: FITRAH (POTRET) VS HARTA (LANSKAP) */}
+            {/* TOGGLE PILIHAN JENIS ZAKAT: FITRAH (SEGI EMPAT) VS HARTA (LANSKAP) */}
             <div className="flex bg-black/40 p-1 rounded-2xl backdrop-blur-md border border-white/15 max-w-xs mx-auto w-full">
               <button
                 type="button"
@@ -499,7 +499,7 @@ export default function ScanPage() {
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <span>🌾 Fitrah (Potret)</span>
+                <span>🌾 Fitrah (Segi Empat)</span>
               </button>
 
               <button
@@ -525,7 +525,7 @@ export default function ScanPage() {
                 screenshotFormat="image/jpeg"
                 videoConstraints={{
                   facingMode: facingMode,
-                  aspectRatio: receiptType === 'HARTA' ? 16 / 9 : 3 / 4,
+                  aspectRatio: receiptType === 'HARTA' ? 16 / 9 : 1,
                   width: { ideal: 1280 },
                   height: { ideal: 960 }
                 }}
@@ -538,12 +538,12 @@ export default function ScanPage() {
               </div>
             )}
             
-            {/* Petak Imbas Luas (Menyesuaikan Fitrah Potret vs Harta Lanskap) */}
+            {/* Petak Imbas Luas (Menyesuaikan Fitrah Segi Empat vs Harta Lanskap) */}
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">
               <div className={`relative flex items-center justify-center transition-all duration-300 ${
                 receiptType === 'HARTA'
                   ? 'w-[94%] max-w-[440px] aspect-[16/9] border-2 border-amber-400/90 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.65)]'
-                  : 'w-[88%] max-w-[340px] aspect-[3/4] border-2 border-teal-400/70 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
+                  : 'w-[86%] max-w-[340px] aspect-square border-2 border-teal-400/70 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]'
               }`}>
                 
                 {/* Hiasan Bucu Neon */}
