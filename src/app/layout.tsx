@@ -27,11 +27,16 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies();
   const userId = cookieStore.get('auth_token')?.value;
-  let userRole = null;
+  // Dapatkan role terus daripada kuki untuk menghapuskan query DB pada setiap muat turun halaman
+  let userRole = cookieStore.get('auth_role')?.value || null;
   
-  if (userId) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    userRole = user?.role;
+  if (userId && !userRole) {
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      userRole = user?.role || 'AMIL';
+    } catch (e) {
+      userRole = 'AMIL'; // Sandaran selamat tanpa menjatuhkan aplikasi
+    }
   }
 
   return (

@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 
 
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const cookieStore = await cookies();
   const userId = cookieStore.get('auth_token')?.value;
@@ -14,34 +16,67 @@ export default async function Home() {
     redirect('/login');
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { mosque: { include: { zone: true } } }
-  });
+  const cachedName = cookieStore.get('auth_name')?.value ? decodeURIComponent(cookieStore.get('auth_name')!.value) : 'Amil Zakat';
+  const cachedRole = cookieStore.get('auth_role')?.value || 'AMIL';
 
-  if (!user) {
-    redirect('/login');
+  let user: any = {
+    id: userId,
+    name: cachedName,
+    role: cachedRole,
+    mosque: { name: 'Kariah Masjid', zone: { name: 'Brunei' } }
+  };
+  let receipts: any[] = [];
+  let totalAmount = 0;
+  let totalReceipts = 0;
+
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { mosque: { include: { zone: true } } }
+    });
+
+    if (dbUser) {
+      user = dbUser;
+      const isAmil = user.role === 'AMIL';
+
+      // Jalankan query secara serentak untuk kepantasan maksimum
+      const [recentReceipts, stats] = await Promise.all([
+        prisma.receipt.findMany({
+          where: isAmil ? { amilId: user.id } : {},
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+          select: {
+            id: true,
+            receiptNumber: true,
+            payerName: true,
+            totalAmount: true,
+            paymentDate: true,
+            zakatType: true,
+            dependents: true,
+            riceType: { select: { name: true, price: true } }
+          }
+        }),
+        prisma.receipt.aggregate({
+          where: isAmil ? { amilId: user.id } : {},
+          _sum: { totalAmount: true },
+          _count: { id: true }
+        })
+      ]);
+
+      receipts = recentReceipts;
+      totalAmount = stats._sum.totalAmount || 0;
+      totalReceipts = stats._count.id;
+    }
+  } catch (err) {
+    console.warn("Home page database notice:", err);
   }
-
-  const receipts = await prisma.receipt.findMany({
-    where: user.role === 'AMIL' ? { amilId: user.id } : {},
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-    include: { riceType: true }
-  });
-
-  const stats = await prisma.receipt.aggregate({
-    where: user.role === 'AMIL' ? { amilId: user.id } : {},
-    _sum: { totalAmount: true },
-    _count: { id: true }
-  });
-  
-  const totalAmount = stats._sum.totalAmount || 0;
-  const totalReceipts = stats._count.id;
 
   const handleLogout = async () => {
     "use server";
-    (await cookies()).delete('auth_token');
+    const store = await cookies();
+    store.delete('auth_token');
+    store.delete('auth_role');
+    store.delete('auth_name');
     redirect('/login');
   };
 

@@ -16,8 +16,8 @@ function createClient(): PrismaClient {
   currentPool = new Pool({
     connectionString,
     max: 1, // Had 1 sambungan setiap isolate Cloudflare Worker
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 5000, // Tutup sambungan terbiar lebih awal untuk elak soket terputus (stale socket)
+    connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 4000, // Tutup sambungan terbiar lebih awal untuk elak soket terputus (stale socket)
   });
 
   currentPool.on('error', (err) => {
@@ -37,6 +37,27 @@ function getClient(): PrismaClient {
   return client;
 }
 
+function isConnectionError(err: any): boolean {
+  if (!err) return false;
+  const msg = (err.message || '').toLowerCase();
+  const code = (err.code || '').toString();
+  return (
+    msg.includes('connection') ||
+    msg.includes('socket') ||
+    msg.includes('terminated') ||
+    msg.includes('closed') ||
+    msg.includes('broken pipe') ||
+    msg.includes('econnreset') ||
+    msg.includes('etimedout') ||
+    msg.includes('timeout') ||
+    msg.includes('pool') ||
+    msg.includes('too many clients') ||
+    msg.includes('client has encountered a connection error') ||
+    code.startsWith('08') ||
+    code.startsWith('57P')
+  );
+}
+
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
     const instance = getClient();
@@ -44,7 +65,7 @@ export const prisma = new Proxy({} as PrismaClient, {
     if (typeof value === 'function') {
       return value.bind(instance);
     }
-    // Balut model Prisma (cth: prisma.receipt, prisma.user) dengan auto-retry sekiranya sambungan terputus
+    // Balut model Prisma (cth: prisma.receipt, prisma.user) dengan auto-retry & backoff
     if (value && typeof value === 'object') {
       return new Proxy(value, {
         get(modelTarget, modelProp) {
@@ -54,20 +75,15 @@ export const prisma = new Proxy({} as PrismaClient, {
               try {
                 return await modelVal.apply(modelTarget, args);
               } catch (err: any) {
-                const errMsg = err?.message || '';
-                // Sekiranya sambungan TCP ditamatkan oleh Supabase (Connection terminated unexpectedly), sambung semula & cuba lagi
-                if (
-                  errMsg.includes('Connection terminated') ||
-                  errMsg.includes('Connection closed') ||
-                  errMsg.includes('broken pipe') ||
-                  errMsg.includes('ECONNRESET')
-                ) {
-                  console.warn('Sambungan terputus dikesan. Menyambung semula secara automatik...');
+                if (isConnectionError(err)) {
+                  console.warn('DB connection glitch detected. Auto-reconnecting...', err?.message);
                   client = null;
                   if (currentPool) {
                     try { await currentPool.end(); } catch (_) {}
                     currentPool = null;
                   }
+                  // Beri ruang 200ms untuk slot pool Supabase dilepaskan
+                  await new Promise(r => setTimeout(r, 200));
                   const freshInstance = getClient();
                   const freshModel = (freshInstance as any)[prop];
                   return await freshModel[modelProp](...args);

@@ -21,11 +21,22 @@ export async function POST(req: Request) {
       user: { id: user.id, role: user.role, name: user.name } 
     });
     
-    // Set cookie
-    (await cookies()).set('auth_token', user.id, {
+    // Set cookies for fast, zero-DB access in layout and client
+    const cookieStore = await cookies();
+    cookieStore.set('auth_token', user.id, {
       httpOnly: true,
       path: '/',
-      maxAge: 60 * 60 * 24 // 1 day
+      maxAge: 60 * 60 * 24 * 7 // 7 days
+    });
+    cookieStore.set('auth_role', user.role, {
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7
+    });
+    cookieStore.set('auth_name', encodeURIComponent(user.name), {
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7
     });
 
     return response;

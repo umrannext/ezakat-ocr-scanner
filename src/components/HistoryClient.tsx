@@ -1,17 +1,26 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, Search, SlidersHorizontal, Edit2, Trash2, 
-  AlertCircle, Loader2, X, Eye, Download, ExternalLink, Image as ImageIcon 
+  AlertCircle, Loader2, X, Eye, Download, ExternalLink, Image as ImageIcon, RefreshCw 
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-export default function HistoryClient({ initialReceipts, userRole }: { initialReceipts: any[], userRole: string }) {
+export default function HistoryClient({ 
+  initialReceipts = [], 
+  userRole: initialRole = 'AMIL' 
+}: { 
+  initialReceipts?: any[], 
+  userRole?: string 
+}) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('date_desc');
   
-  const [receipts, setReceipts] = useState(initialReceipts);
+  const [receipts, setReceipts] = useState<any[]>(initialReceipts);
+  const [userRole, setUserRole] = useState(initialRole);
+  const [loading, setLoading] = useState(initialReceipts.length === 0);
+  const [error, setError] = useState<string | null>(null);
   
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -20,6 +29,31 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
   const [isSaving, setIsSaving] = useState(false);
 
   const [previewReceipt, setPreviewReceipt] = useState<any | null>(null);
+
+  const fetchReceipts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/receipts?limit=80');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setReceipts(json.data || []);
+        if (json.userRole) setUserRole(json.userRole);
+      } else {
+        setError(json.error || 'Gagal memuatkan rekod resit.');
+      }
+    } catch (err: any) {
+      setError('Ralat sambungan. Sila semak sambungan internet anda.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialReceipts.length === 0) {
+      fetchReceipts();
+    }
+  }, []);
 
   let filtered = receipts.filter(r => 
     r.payerName.toLowerCase().includes(search.toLowerCase()) || 
@@ -86,45 +120,90 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
   };
 
   return (
-    <div className="p-5">
-      <div className="flex gap-2 mb-6">
-        <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3 flex-1 transition-all focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100">
-          <Search className="text-slate-400 shrink-0" size={20} />
-          <input 
-            type="text" 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari No. Resit / Nama..." 
-            className="w-full bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder:text-slate-400 placeholder:font-medium"
-          />
-        </div>
-        
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center px-3 relative min-w-[50px]">
-          <SlidersHorizontal className="text-teal-600 absolute left-3 pointer-events-none" size={20} />
-          <select 
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="w-full h-full opacity-0 absolute inset-0 cursor-pointer"
+    <div>
+      {/* Header Bar Konsisten & Responsif */}
+      <div className="bg-white/80 backdrop-blur-md p-4 flex justify-between items-center shadow-sm sticky top-0 z-10 border-b border-slate-200/50">
+        <h1 className="font-bold text-slate-800 ml-2 tracking-tight text-lg">Rekod Keseluruhan</h1>
+        <div className="flex items-center gap-2 mr-1">
+          <button 
+            type="button"
+            onClick={fetchReceipts}
+            disabled={loading}
+            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-teal-600 active:rotate-180 transition-all disabled:opacity-50"
+            title="Muat semula rekod"
           >
-            <option value="date_desc">Tarikh (Terbaru)</option>
-            <option value="date_asc">Tarikh (Lama)</option>
-            <option value="amount_desc">Jumlah (Tertinggi)</option>
-            <option value="amount_asc">Jumlah (Terendah)</option>
-          </select>
+            <RefreshCw size={17} className={loading ? "animate-spin text-teal-600" : ""} />
+          </button>
+          <div className="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs font-bold">
+            {filtered.length} Rekod
+          </div>
         </div>
       </div>
 
-      <div className="flex justify-between items-center mb-4 px-1">
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-          {filtered.length} Rekod Dijumpai
-        </p>
-        <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-bold">
-          {sortBy.includes('date') ? 'Susunan Tarikh' : 'Susunan Jumlah'}
-        </span>
-      </div>
+      <div className="p-5">
+        <div className="flex gap-2 mb-6">
+          <div className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3 flex-1 transition-all focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100">
+            <Search className="text-slate-400 shrink-0" size={20} />
+            <input 
+              type="text" 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari No. Resit / Nama..." 
+              className="w-full bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder:text-slate-400 placeholder:font-medium"
+            />
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center px-3 relative min-w-[50px]">
+            <SlidersHorizontal className="text-teal-600 absolute left-3 pointer-events-none" size={20} />
+            <select 
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full h-full opacity-0 absolute inset-0 cursor-pointer"
+            >
+              <option value="date_desc">Tarikh (Terbaru)</option>
+              <option value="date_asc">Tarikh (Lama)</option>
+              <option value="amount_desc">Jumlah (Tertinggi)</option>
+              <option value="amount_asc">Jumlah (Terendah)</option>
+            </select>
+          </div>
+        </div>
 
-      <div className="space-y-4">
-        {filtered.length === 0 ? (
+        <div className="flex justify-between items-center mb-4 px-1">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            {filtered.length} Rekod Dijumpai
+          </p>
+          <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-bold">
+            {sortBy.includes('date') ? 'Susunan Tarikh' : 'Susunan Jumlah'}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 animate-pulse">
+                  <div className="w-12 h-12 bg-slate-200 rounded-xl shrink-0"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                    <div className="h-3 bg-slate-100 rounded w-1/3"></div>
+                  </div>
+                  <div className="w-16 h-6 bg-slate-100 rounded-full"></div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+              <AlertCircle size={32} className="text-amber-500 mx-auto mb-2" />
+              <p className="text-sm font-bold text-amber-800">{error}</p>
+              <button
+                type="button"
+                onClick={fetchReceipts}
+                className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 active:scale-95 transition-all shadow-sm"
+              >
+                Cuba Semula
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 text-center shadow-sm border border-slate-100/50 flex flex-col items-center justify-center mt-4">
             <div className="bg-slate-50 p-4 rounded-full mb-4">
               <FileText className="text-slate-300" size={40} />
@@ -372,6 +451,7 @@ export default function HistoryClient({ initialReceipts, userRole }: { initialRe
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

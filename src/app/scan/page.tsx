@@ -17,8 +17,13 @@ export default function ScanPage() {
   // Pilihan Mod: 'camera' (Imbas Terus dari Kamera) | 'gallery' (Pilih & Selaras dari Galeri)
   const [scanMode, setScanMode] = useState<'camera' | 'gallery'>('camera');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [mounted, setMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState('Memproses resit...');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // State Penyelarasan Imej Galeri (Crop, Zoom, Pan & Rotate)
   const [adjustImage, setAdjustImage] = useState<string | null>(null);
@@ -444,18 +449,25 @@ export default function ScanPage() {
 
           {/* Area Kamera Langsung dengan Petak Panduan Luas */}
           <div className="relative w-full flex-1 flex items-center justify-center overflow-hidden">
-            <Webcam
-              audio={false}
-              ref={webcamRef}
-              screenshotFormat="image/jpeg"
-              videoConstraints={{
-                facingMode: facingMode,
-                aspectRatio: 3 / 4,
-                width: { ideal: 1280 },
-                height: { ideal: 960 }
-              }}
-              className="object-cover w-full h-full absolute inset-0"
-            />
+            {mounted ? (
+              <Webcam
+                audio={false}
+                ref={webcamRef}
+                screenshotFormat="image/jpeg"
+                videoConstraints={{
+                  facingMode: facingMode,
+                  aspectRatio: 3 / 4,
+                  width: { ideal: 1280 },
+                  height: { ideal: 960 }
+                }}
+                className="object-cover w-full h-full absolute inset-0"
+              />
+            ) : (
+              <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center text-slate-500">
+                <Loader2 className="animate-spin text-teal-500 mb-2" size={32} />
+                <span className="text-xs">Memulakan kamera...</span>
+              </div>
+            )}
             
             {/* Petak Imbas Luas (Sempadan Ditolak ke Tepi) */}
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none">

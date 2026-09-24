@@ -5,23 +5,29 @@ import AmilDirectoryClient from '@/components/AmilDirectoryClient';
 
 
 
+export const dynamic = 'force-dynamic';
+
 export default async function AmilsPage() {
   const cookieStore = await cookies();
   const userId = cookieStore.get('auth_token')?.value;
+  const role = cookieStore.get('auth_role')?.value;
 
   if (!userId) redirect('/login');
+  if (role && role !== 'ADMIN') redirect('/');
 
-  const admin = await prisma.user.findUnique({ where: { id: userId } });
-  if (admin?.role !== 'ADMIN') redirect('/');
-
-  const amils = await prisma.user.findMany({
-    where: { role: 'AMIL' },
-    include: { 
-      mosque: { include: { zone: true } },
-      receipts: { select: { totalAmount: true } }
-    },
-    orderBy: { name: 'asc' }
-  });
+  let amils: any[] = [];
+  try {
+    amils = await prisma.user.findMany({
+      where: { role: 'AMIL' },
+      include: { 
+        mosque: { include: { zone: true } },
+        receipts: { select: { totalAmount: true } }
+      },
+      orderBy: { name: 'asc' }
+    });
+  } catch (err) {
+    console.warn("Amils query notice:", err);
+  }
 
   return <AmilDirectoryClient initialAmils={amils} />;
 }
