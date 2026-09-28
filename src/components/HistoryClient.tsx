@@ -23,6 +23,7 @@ export default function HistoryClient({
   const [error, setError] = useState<string | null>(null);
   
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   
   const [editData, setEditData] = useState<any | null>(null);
@@ -49,6 +50,25 @@ export default function HistoryClient({
     }
   };
 
+  const handleClearCache = () => {
+    if (confirm("Adakah anda benar-benar ingin mengosongkan cache data/imej di peranti ini? Tindakan ini HANYA memadam simpanan sementara (LocalStorage) bagi menjimatkan ruang memori bimbit anda. Rekod resit yang telah disegerakkan ke pangkalan data TIDAK akan terjejas.")) {
+      try {
+        let count = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('receipt_img_') || key === 'scannedImage')) {
+            localStorage.removeItem(key);
+            count++;
+          }
+        }
+        alert(`✅ Berjaya! Sebanyak ${count} cache imej resit telah dikosongkan.`);
+      } catch (err) {
+        alert("Ralat semasa memadam cache.");
+      }
+    }
+  };
+
+
   useEffect(() => {
     if (initialReceipts.length === 0) {
       fetchReceipts();
@@ -67,6 +87,24 @@ export default function HistoryClient({
     if (sortBy === 'amount_asc') return a.totalAmount - b.totalAmount;
     return 0;
   });
+
+  const emptyCache = () => {
+    if (confirm("Adakah anda benar-benar ingin mengosongkan cache data/imej di peranti ini? Tindakan ini HANYA memadam simpanan sementara (LocalStorage) bagi menjimatkan ruang memori bimbit anda. Rekod resit yang telah disegerakkan ke pangkalan data TIDAK akan terjejas.")) {
+      try {
+        let count = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('receipt_img_') || key === 'scannedImage')) {
+            localStorage.removeItem(key);
+            count++;
+          }
+        }
+        alert(`✅ Berjaya! Sebanyak ${count} cache imej resit telah dikosongkan.`);
+      } catch (err) {
+        alert("Ralat semasa memadam cache.");
+      }
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -115,10 +153,11 @@ export default function HistoryClient({
         setEditData(null);
         router.refresh();
       } else {
-        alert("Gagal mengemaskini.");
+        const errData = await res.json().catch(() => null);
+        alert(errData?.error || "Gagal mengemaskini.");
       }
-    } catch (err) {
-      alert("Ralat sistem.");
+    } catch (err: any) {
+      alert(err.message || "Ralat sistem.");
     }
     setIsSaving(false);
   };
@@ -129,6 +168,14 @@ export default function HistoryClient({
       <div className="bg-white/80 backdrop-blur-md p-4 flex justify-between items-center shadow-sm sticky top-0 z-10 border-b border-slate-200/50">
         <h1 className="font-bold text-slate-800 ml-2 tracking-tight text-lg">Rekod Keseluruhan</h1>
         <div className="flex items-center gap-2 mr-1">
+          <button 
+            type="button"
+            onClick={handleClearCache}
+            className="p-1.5 rounded-full hover:bg-red-50 text-slate-500 hover:text-red-500 active:scale-95 transition-all"
+            title="Kosongkan Cache Imej di Peranti (Kosongkan LocalStorage)"
+          >
+            <Trash2 size={17} />
+          </button>
           <button 
             type="button"
             onClick={fetchReceipts}
@@ -276,8 +323,10 @@ export default function HistoryClient({
                   <div className="text-right flex flex-col items-end shrink-0 ml-2">
                     <span className={`inline-block text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm ${
                       isHarta
-                        ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 text-amber-800'
-                        : 'bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/50 text-teal-700'
+                        ? 'bg-orange-100 border border-orange-300 text-amber-900'
+                        : (receipt.riceType?.name?.toLowerCase()?.includes('wangi') 
+                           ? 'bg-emerald-100 border border-emerald-200 text-emerald-800'
+                           : 'bg-yellow-100 border border-yellow-200 text-yellow-800')
                     }`}>
                       {isHarta ? 'Zakat Harta' : (receipt.riceType?.name || 'Zakat Fitrah')}
                     </span>
@@ -292,35 +341,44 @@ export default function HistoryClient({
               
               {/* Footer Tindakan: Lihat Resit & Edit/Padam */}
               <div className="mt-3.5 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-                {receipt.imageUrl ? (
-                  <button 
-                    type="button"
-                    onClick={() => setPreviewReceipt(receipt)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-teal-50/80 hover:bg-teal-100 text-teal-700 font-bold active:scale-95 transition-all"
+                <div className="flex gap-1.5">
+                  {receipt.imageUrl ? (
+                    <button 
+                      type="button"
+                      onClick={() => setPreviewReceipt(receipt)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold active:scale-95 transition-all"
+                    >
+                      <Eye size={13} className="text-slate-500" />
+                      <span>Gambar Asal</span>
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-slate-300 italic px-2.5 py-1.5">Tiada gambar resit</span>
+                  )}
+                  
+                  <a 
+                    href={`/receipt/${receipt.id}`}
+                    target="_blank"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-teal-50/80 hover:bg-teal-100 text-teal-700 font-bold active:scale-95 transition-all"
                   >
-                    <Eye size={14} className="text-teal-600" />
-                    <span>Lihat Resit</span>
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-slate-300 italic">Tiada foto resit</span>
-                )}
+                    <FileText size={13} className="text-teal-600" />
+                    <span>E-Resit</span>
+                  </a>
+                </div>
 
-                {userRole === 'ADMIN' && (
-                  <div className="flex gap-1.5">
-                    <button 
-                      onClick={() => setEditData(receipt)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 active:scale-95 transition-all"
-                    >
-                      <Edit2 size={13} /> Edit
-                    </button>
-                    <button 
-                      onClick={() => setDeleteId(receipt.id)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 active:scale-95 transition-all"
-                    >
-                      <Trash2 size={13} /> Padam
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-1.5">
+                  <button 
+                    onClick={() => setEditData(receipt)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 active:scale-95 transition-all"
+                  >
+                    <Edit2 size={13} /> Edit
+                  </button>
+                  <button 
+                    onClick={() => setDeleteId(receipt.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 active:scale-95 transition-all"
+                  >
+                    <Trash2 size={13} /> Padam
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -336,12 +394,13 @@ export default function HistoryClient({
               <AlertCircle size={32} />
             </div>
             <h3 className="text-xl font-black text-center text-slate-800">Padam Rekod?</h3>
-            <p className="text-sm text-center text-slate-500 mt-2 font-medium mb-6">Tindakan ini tidak boleh diundur. Adakah anda pasti?</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className="w-1/2 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active:scale-95">
-                Batal
-              </button>
-              <button onClick={handleDelete} disabled={isDeleting} className="w-1/2 bg-red-600 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 active:scale-95">
+            <p className="text-sm text-center text-slate-500 mt-2 font-medium mb-4">Tindakan ini tidak boleh diundur. Sila taip <span className="font-bold text-slate-800">padam</span> untuk mengesahkan.</p>
+              <input type="text" placeholder="Taip padam di sini" value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} className="w-full mb-6 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center font-bold text-slate-800 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all lowercase" />
+              <div className="flex gap-3">
+                <button onClick={() => { setDeleteId(null); setDeleteConfirmText(''); }} className="w-1/2 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active:scale-95">
+                  Batal
+                </button>
+                <button onClick={handleDelete} disabled={isDeleting || deleteConfirmText.toLowerCase() !== 'padam'} className="w-1/2 bg-red-600 text-white font-bold py-3.5 rounded-xl flex justify-center items-center gap-2 active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-opacity">
                 {isDeleting ? <Loader2 className="animate-spin" size={18}/> : 'Ya, Padam'}
               </button>
             </div>

@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation';
 import Tesseract from 'tesseract.js';
 import { 
   Loader2, CheckCircle2, AlertCircle, Save, ArrowLeft, 
-  Sparkles, Plus, Minus, FileText, Check, Zap, WifiOff 
+  Sparkles, Plus, Minus, FileText, Check, Zap 
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   detectPaperColorFromImage, 
   extractReceiptCodeAndNumber, 
@@ -16,7 +17,6 @@ import {
   extractStandardizedPaymentDate,
   PaperColorResult 
 } from '@/lib/ocr-helper';
-import { saveOfflineReceipt } from '@/lib/offline-storage';
 
 interface DetectionInfo {
   code: 'DW' | 'CS' | '';
@@ -37,7 +37,10 @@ export default function ReviewPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isWakalah, setIsWakalah] = useState(false);
+  const [generatedReceiptUrl, setGeneratedReceiptUrl] = useState<string | null>(null);
+  const [savedReceiptNumbers, setSavedReceiptNumbers] = useState<string[]>([]);
   const [isQuickMode, setIsQuickMode] = useState(false);
+
   
   useEffect(() => {
     const qm = typeof window !== 'undefined' && sessionStorage.getItem('scanQuickMode') === 'true';
@@ -150,14 +153,12 @@ export default function ReviewPage() {
     try {
       const scanHint = (typeof window !== 'undefined' ? sessionStorage.getItem('scanReceiptType') : null) as 'FITRAH' | 'HARTA' | null;
 
-      // 1. Analisis warna kertas resit & orientasi menggunakan Canvas
-      const paperColorResult = await detectPaperColorFromImage(base64Image);
-
-      // 2. OCR recognition menggunakan Tesseract
-      const result = await Tesseract.recognize(base64Image, 'eng+msa', {
-        logger: m => console.log(m)
-      });
-      const text = result.data.text || '';
+      // 1 & 2. Jalankan analisis warna kertas DAN OCR secara SELARI untuk mempercepatkan proses
+      const [paperColorResult, ocrResult] = await Promise.all([
+        detectPaperColorFromImage(base64Image),
+        Tesseract.recognize(base64Image, 'eng+msa')  // Logger dibuang — mengurangkan overhead signifikan
+      ]);
+      const text = ocrResult.data.text || '';
 
       // 3. Ekstrak nombor resit & kenal pasti Zakat Harta (5-angka) vs Zakat Fitrah (DW/CS 6-angka)
       const receiptData = extractReceiptCodeAndNumber(
@@ -224,7 +225,7 @@ export default function ReviewPage() {
         paperColor: paperColorResult,
         totalMuzakki: isHarta ? 1 : muzakkiData.totalMuzakki,
         dependents: isHarta ? 0 : muzakkiData.dependents,
-        muzakkiSource: isHarta ? 'Resit Zakat Harta (Borang A)' : muzakkiData.source,
+        muzakkiSource: isHarta ? 'Resit Zakat Harta' : muzakkiData.source,
         detectionReasons: receiptData.detectionReasons
       });
 
@@ -324,12 +325,11 @@ export default function ReviewPage() {
     setIsSaving(true);
     setShowConfirm(false);
     try {
-      // Mampatkan imej asal kepada saiz ultra-ringan (~15KB - 20KB) untuk pangkalan data & rujukan pantas
+      // Mampatkan imej kepada thumbnail ringan untuk DB
       let compressedThumb: string | null = null;
       if (image) {
         try {
-          compressedThumb = await compressReceiptImage(image, 520, 0.58);
-          // Simpan juga salinan dalam LocalStorage untuk akses sepantas kilat
+          compressedThumb = await compressReceiptImage(image, 480, 0.52);
           if (typeof window !== 'undefined' && formData.receiptNumber) {
             try {
               localStorage.setItem(`receipt_img_${formData.receiptNumber.trim()}`, compressedThumb);
@@ -352,20 +352,32 @@ export default function ReviewPage() {
         icNumber: finalIcNumber,
         isQuickMode,
         isWakalah: Boolean(isWakalah),
+        isSedekah: false,
+        paidAmount: parseFloat(totalAmount),
+        sedekahAmount: 0,
         riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
         totalAmount: parseFloat(totalAmount),
         zakatType: formData.zakatType,
         imageUrl: compressedThumb
       };
 
-      const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      const res = await fetch('/api/receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
 
-      // KES 1: Mod Luar Talian jika tiada internet
-      if (!isOnline) {
-        saveOfflineReceipt(payload);
+      if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
-        alert("📴 MOD LUAR TALIAN (BETA)\n\nTiada sambungan internet dikesan. Rekod resit ini telah disimpan dengan selamat di dalam peranti anda.\n\nSistem akan memuat naik (auto-sync) rekod ini ke pangkalan data secara automatik sebaik sahaja talian internet kembali pulih.");
-        
+        // E-Resit sentiasa dipaparkan selepas simpan berjaya
+        if (data.data?.id) {
+          setSavedReceiptNumbers(data.receiptNumbers || [data.data.receiptNumber]);
+          setGeneratedReceiptUrl(`${window.location.origin}/receipt/${data.data.id}`);
+          return; // Kekal di halaman untuk tunjuk E-Resit
+        }
+        // Fallback jika tiada ID (tidak sepatutnya berlaku)
         if (isQuickMode && formData.zakatType === 'FITRAH') {
           sessionStorage.setItem('scanQuickMode', 'true');
           sessionStorage.setItem('scanReceiptType', 'FITRAH');
@@ -375,56 +387,15 @@ export default function ReviewPage() {
           router.push('/');
           router.refresh();
         }
-        setIsSaving(false);
-        return;
-      }
-
-      // KES 2: Sambungan biasa ke pangkalan data
-      try {
-        const res = await fetch('/api/receipts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        
-        const data = await res.json();
-
-        if (res.ok && data.success) {
-          sessionStorage.removeItem('scannedImage');
-          if (isQuickMode && formData.zakatType === 'FITRAH') {
-            sessionStorage.setItem('scanQuickMode', 'true');
-            sessionStorage.setItem('scanReceiptType', 'FITRAH');
-            router.push('/scan');
-          } else {
-            sessionStorage.setItem('scanQuickMode', 'false');
-            router.push('/');
-            router.refresh();
-          }
-        } else {
-          alert(data.error || "Gagal menyimpan rekod data. Sila semak maklumat resit.");
-        }
-      } catch (networkErr: any) {
-        // KES 3: Talian terputus semasa penghantaran (Fallback ke Offline Storage)
-        console.warn("Rangkaian terputus, disimpan ke peranti:", networkErr);
-        saveOfflineReceipt(payload);
-        sessionStorage.removeItem('scannedImage');
-        alert("📴 ISYARAT TERPUTUS (MOD LUAR TALIAN BETA)\n\nSambungan internet terputus semasa menyimpan. Rekod telah disimpan dengan selamat di dalam peranti dan akan diselaraskan (auto-sync) sebaik sahaja isyarat internet dikesan.");
-
-        if (isQuickMode && formData.zakatType === 'FITRAH') {
-          sessionStorage.setItem('scanQuickMode', 'true');
-          sessionStorage.setItem('scanReceiptType', 'FITRAH');
-          router.push('/scan');
-        } else {
-          sessionStorage.setItem('scanQuickMode', 'false');
-          router.push('/');
-          router.refresh();
-        }
+      } else {
+        alert(data.error || "Gagal menyimpan rekod data. Sila semak maklumat resit.");
       }
     } catch (error: any) {
-      alert("Ralat sistem semasa memproses penyimpanan: " + (error?.message || "Sila cuba lagi"));
+      alert("Ralat sistem: " + (error?.message || "Sambungan gagal. Sila cuba lagi."));
     }
     setIsSaving(false);
   };
+
 
   if (isExtracting) {
     return (
@@ -460,7 +431,7 @@ export default function ReviewPage() {
         {(isOfflineDetected || ocrOfflineNote) && (
           <div className="mb-4 bg-amber-500/10 border-2 border-amber-400/70 text-amber-950 p-3.5 rounded-2xl text-xs space-y-1.5 animate-in fade-in">
             <div className="flex items-center gap-2 font-black text-amber-900">
-              <WifiOff size={16} className="text-amber-600 shrink-0" />
+              <span className="text-amber-600 shrink-0">📴</span>
               <span>Mod Luar Talian (Offline Beta) Aktif</span>
             </div>
             <p className="text-[11px] text-amber-800/90 leading-relaxed font-medium">
@@ -507,7 +478,7 @@ export default function ReviewPage() {
                 <Sparkles size={16} className={formData.zakatType === 'HARTA' ? 'text-amber-600' : 'text-teal-600'} />
                 <span>
                   {formData.zakatType === 'HARTA' 
-                    ? 'Pengesanan Resit Zakat Harta (Borang A)' 
+                    ? 'Pengesanan Resit Zakat Harta' 
                     : 'Pengesanan Resit Zakat Fitrah'}
                 </span>
               </div>
@@ -686,7 +657,7 @@ export default function ReviewPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between ml-1">
               <label className={`text-[11px] font-bold uppercase tracking-widest ${isQuickMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Tarikh Pembayaran
+                Tarikh Pembayaran {formData.zakatType === 'HARTA' && <span className="text-red-500">*</span>}
               </label>
               {isQuickMode && (
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full">
@@ -1176,7 +1147,7 @@ export default function ReviewPage() {
 
             {/* CHECKBOX WAKALAH (SEMBUNYI JIKA MOD ARKIB) */}
             {!isQuickMode && (
-              <div className="flex items-center gap-2 pt-1 ml-1">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-1 ml-1">
                 <label className="relative flex items-center cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -1185,12 +1156,16 @@ export default function ReviewPage() {
                     className="w-4 h-4 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500 cursor-pointer accent-teal-600"
                   />
                   <span className="ml-2 text-xs font-bold text-slate-700">
-                    Wakalah <span className="text-[11px] font-medium text-slate-500">(Mewakili Pembayar Lain)</span>
+                    Wakalah <span className="text-[11px] font-medium text-slate-500">(Mewakili Pembayar)</span>
                   </span>
                 </label>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+
+
+
+            </div>
+
 
           {/* MEDAN ALAMAT JIKA ZAKAT HARTA (TANPA JAWI) */}
           {formData.zakatType === 'HARTA' && (
@@ -1251,6 +1226,10 @@ export default function ReviewPage() {
               const val = parseFloat(formData.manualTotal);
               if (isNaN(val) || val <= 0) {
                 alert("Sila masukkan Jumlah Bayaran Zakat Harta ($).");
+                return;
+              }
+              if (!formData.paymentDate) {
+                alert("Sila masukkan Tarikh Pembayaran Zakat Harta untuk tujuan kiraan haul tahun seterusnya.");
                 return;
               }
             } else {
@@ -1401,6 +1380,81 @@ export default function ReviewPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL QR CODE E-RESIT */}
+      {generatedReceiptUrl && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl transform transition-all text-center overflow-y-auto max-h-[95vh]">
+            <div className="w-14 h-14 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 size={32} />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 mb-1">✅ Disimpan!</h3>
+            <p className="text-sm text-slate-500 mb-3 font-medium">
+              {savedReceiptNumbers.length > 1 
+                ? `${savedReceiptNumbers.length} rekod (pembayar + ${savedReceiptNumbers.length - 1} tanggungan)` 
+                : 'Rekod tersimpan di pangkalan data.'}
+            </p>
+
+            {/* Senarai Running Number Tanggungan */}
+            {savedReceiptNumbers.length > 0 && (
+              <div className="bg-slate-50 rounded-xl p-3 mb-4 text-left border border-slate-200">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nombor Resit Diarkib:</p>
+                <div className="space-y-1.5">
+                  {savedReceiptNumbers.map((rNum, idx) => (
+                    <div key={rNum} className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${idx === 0 ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-600'}`}>
+                        {idx === 0 ? 'Pembayar' : `Tggungan ${idx}`}
+                      </span>
+                      <span className="font-mono font-bold text-sm text-slate-800">{rNum}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="bg-white p-3 rounded-2xl border-2 border-slate-100 shadow-sm inline-block mb-3">
+              <QRCodeSVG 
+                value={generatedReceiptUrl} 
+                size={195}
+                level="H"
+                includeMargin={true}
+                fgColor="#0f172a"
+              />
+            </div>
+
+            <a 
+              href={generatedReceiptUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-xl shadow-md active:scale-95 transition-all mb-2 text-sm"
+            >
+              🔗 Buka E-Resit Digital
+            </a>
+            
+            <button 
+              onClick={() => {
+                setGeneratedReceiptUrl(null);
+                setSavedReceiptNumbers([]);
+                if (isQuickMode && formData.zakatType === 'FITRAH') {
+                  sessionStorage.setItem('scanQuickMode', 'true');
+                  sessionStorage.setItem('scanReceiptType', 'FITRAH');
+                  router.push('/scan');
+                } else {
+                  sessionStorage.setItem('scanQuickMode', 'false');
+                  router.push('/');
+                  router.refresh();
+                }
+              }}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex justify-center items-center gap-2 text-sm"
+            >
+              <Check size={18} />
+              Selesai & Kembali
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+

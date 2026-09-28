@@ -5,3 +5,12 @@
   50% { top: 98%; } 
   100% { top: 0; } 
 }
+
+@media print {
+  @page { margin: 0.5cm; }
+  html, body { 
+    height: auto !important; 
+    min-height: 0 !important; 
+    overflow: visible !important;
+  }
+}

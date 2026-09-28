@@ -42,8 +42,8 @@ export default async function RootLayout({
 
   return (
     <html lang="ms">
-      <body className={`${font.className} bg-gray-100 text-slate-800 antialiased min-h-screen flex justify-center`}>
-        <div className="w-full max-w-md bg-[#F8FAFC] min-h-screen shadow-2xl relative pb-20 overflow-x-hidden">
+      <body className={`${font.className} bg-gray-100 text-slate-800 antialiased min-h-screen flex justify-center print:min-h-0 print:bg-white`}>
+        <div className="w-full max-w-md bg-[#F8FAFC] min-h-screen shadow-2xl relative pb-20 print:pb-0 print:shadow-none print:min-h-0 print:bg-white overflow-x-hidden">
           <OfflineSyncBanner />
           {children}
           <BottomNav userRole={userRole} />

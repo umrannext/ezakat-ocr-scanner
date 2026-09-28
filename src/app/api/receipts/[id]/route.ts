@@ -12,10 +12,21 @@ const isAdmin = async () => {
 };
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const amilId = (await cookies()).get('auth_token')?.value;
+  if (!amilId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   try {
     const { id } = await params;
+    
+    const user = await prisma.user.findUnique({ where: { id: amilId } });
+    const receipt = await prisma.receipt.findUnique({ where: { id } });
+    
+    if (!receipt) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    
+    if (user?.role !== 'ADMIN' && receipt.amilId !== amilId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    
     await prisma.receipt.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -24,10 +35,21 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await isAdmin())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const amilId = (await cookies()).get('auth_token')?.value;
+  if (!amilId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   try {
     const { id } = await params;
+    
+    const user = await prisma.user.findUnique({ where: { id: amilId } });
+    const receipt = await prisma.receipt.findUnique({ where: { id } });
+    
+    if (!receipt) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    
+    if (user?.role !== 'ADMIN' && receipt.amilId !== amilId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const data = await req.json();
     const updated = await prisma.receipt.update({
       where: { id },
@@ -40,7 +62,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       include: { riceType: true }
     });
     return NextResponse.json({ success: true, data: updated });
-  } catch (error) {
-    return NextResponse.json({ error: 'Gagal mengemaskini rekod' }, { status: 500 });
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'Nombor resit ini telah wujud dalam pangkalan data.' }, { status: 400 });
+    }
+    return NextResponse.json({ error: error.message || 'Gagal mengemaskini rekod' }, { status: 500 });
   }
 }

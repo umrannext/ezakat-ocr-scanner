@@ -70,6 +70,10 @@ model Receipt {
   totalAmount   Float    @default(0)
   zakatType     String   @default("FITRAH") // "FITRAH" or "HARTA"
   
+  isSedekah     Boolean  @default(false)
+  paidAmount    Float    @default(0)
+  sedekahAmount Float    @default(0)
+  
   amilId        String
   amil          User     @relation(fields: [amilId], references: [id])
   

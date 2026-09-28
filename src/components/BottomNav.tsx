@@ -7,10 +7,10 @@ import { Home, ScanLine, List, Users, UserCircle2, Info as InfoIcon, Settings } 
 export default function BottomNav({ userRole }: { userRole?: string | null }) {
   const pathname = usePathname();
 
-  if (pathname === '/login' || pathname === '/scan' || pathname === '/review') return null;
+  if (pathname === '/login' || pathname === '/scan' || pathname === '/review' || pathname.startsWith('/receipt/')) return null;
 
   return (
-    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/90 backdrop-blur-lg border-t border-slate-200/60 grid grid-cols-5 items-end px-2 pt-2 pb-2.5 z-50 rounded-t-3xl shadow-[0_-8px_30px_-15px_rgba(0,0,0,0.1)] transition-all duration-300">
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/90 backdrop-blur-lg border-t border-slate-200/60 grid grid-cols-5 items-end px-2 pt-2 pb-2.5 z-50 rounded-t-3xl shadow-[0_-8px_30px_-15px_rgba(0,0,0,0.1)] transition-all duration-300 print:hidden">
       
       {/* 1. UTAMA */}
       <Link 

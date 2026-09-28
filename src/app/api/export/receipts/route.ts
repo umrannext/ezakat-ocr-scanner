@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 
 
 
-export async function GET() {
+export async function GET(req: Request) {
   const cookieStore = await cookies();
   const userId = cookieStore.get('auth_token')?.value;
 
@@ -19,7 +19,17 @@ export async function GET() {
   }
 
   try {
+    const url = new URL(req.url);
+    const year = url.searchParams.get('year');
+    const whereClause = year ? {
+      OR: [
+        { riceType: { activeYear: year } },
+        { AND: [{ zakatType: 'HARTA' }] }
+      ]
+    } : {};
+
     const receipts = await prisma.receipt.findMany({
+      where: whereClause,
       include: {
         amil: {
           select: { name: true, loginId: true, mosque: { select: { name: true, zone: { select: { name: true } } } } }
@@ -40,6 +50,9 @@ export async function GET() {
       'Kategori Beras / Harta',
       'Tanggungan',
       'Jumlah Zakat ($)',
+      'Sedekah Am ($)',
+      'Jumlah Diterima ($)',
+      'Timestamp Penuh',
       'Nama Amil',
       'ID Amil',
       'Masjid',
@@ -56,6 +69,9 @@ export async function GET() {
       r.zakatType === 'HARTA' ? 'Harta' : (r.riceType?.name || '-'),
       r.zakatType === 'HARTA' ? '-' : r.dependents.toString(),
       r.totalAmount.toFixed(2),
+      (r.sedekahAmount || 0).toFixed(2),
+      (r.paidAmount || r.totalAmount).toFixed(2),
+      r.createdAt.toISOString(),
       `"${r.amil.name}"`,
       r.amil.loginId,
       `"${r.amil.mosque?.name || '-'}"`,

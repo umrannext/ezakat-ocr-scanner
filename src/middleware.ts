@@ -5,8 +5,9 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const isLoginPage = request.nextUrl.pathname === '/login';
   const isInfoPage = request.nextUrl.pathname === '/info';
+  const isReceiptPage = request.nextUrl.pathname.startsWith('/receipt/');
 
-  if (!token && !isLoginPage && !isInfoPage) {
+  if (!token && !isLoginPage && !isInfoPage && !isReceiptPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

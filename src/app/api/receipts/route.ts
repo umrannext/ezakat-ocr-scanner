@@ -38,7 +38,9 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: {
-        riceType: true,
+        riceType: {
+          select: { id: true, name: true, code: true, price: true, activeYear: true }
+        },
         amil: {
           select: { id: true, name: true, loginId: true }
         }
@@ -52,11 +54,14 @@ export async function GET(req: Request) {
       paymentDate: r.paymentDate.toISOString()
     }));
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: serialized,
       userRole
     });
+    // Cache 5 saat di browser — halaman Sejarah refresh pantas tanpa fetch semula
+    response.headers.set('Cache-Control', 'private, max-age=5');
+    return response;
   } catch (error: any) {
     console.error("Ralat mendapatkan senarai resit:", error);
     return NextResponse.json({
@@ -89,7 +94,8 @@ export async function POST(req: Request) {
       }, { status: 401 });
     }
 
-    const data = await req.json();
+    const textBody = await req.text();
+    const data = JSON.parse(textBody);
 
     // 3. Sahkan Nombor Resit & Nama Pembayar
     const receiptNumber = data.receiptNumber?.trim() || ('RZT-' + Math.floor(100000 + Math.random() * 900000));
@@ -134,46 +140,85 @@ export async function POST(req: Request) {
     }
 
     const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
-
     const safeImageUrl = (data.imageUrl && typeof data.imageUrl === 'string' && data.imageUrl.length < 150000) ? data.imageUrl : null;
+    const safeTotalAmount = isNaN(totalAmount) ? 0 : totalAmount;
+    const safeDependents = isNaN(dependents) ? 0 : dependents;
 
-    // 5. Gunakan upsert: Jika no. resit telah wujud, kemaskini rekod tersebut (elak ralat P2002 Unique Constraint)
-    const receipt = await prisma.receipt.upsert({
-      where: { receiptNumber: receiptNumber },
-      update: {
-        payerName: payerName,
-        zakatType: data.zakatType || 'FITRAH',
-        riceTypeId: validRiceTypeId,
-        amilId: user.id,
-        payerIcNumber: payerIcNumber,
-        isVerified: Boolean(data.isVerified && !data.isQuickMode),
-        isWakalah: Boolean(data.isWakalah),
-        imageUrl: safeImageUrl,
-        dependents: isNaN(dependents) ? 0 : dependents,
-        paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
-        totalAmount: isNaN(totalAmount) ? 0 : totalAmount
-      },
-      create: {
-        receiptNumber: receiptNumber,
-        payerName: payerName,
-        zakatType: data.zakatType || 'FITRAH',
-        riceTypeId: validRiceTypeId,
-        amilId: user.id,
-        payerIcNumber: payerIcNumber,
-        isVerified: Boolean(data.isVerified && !data.isQuickMode),
-        isWakalah: Boolean(data.isWakalah),
-        imageUrl: safeImageUrl,
-        dependents: isNaN(dependents) ? 0 : dependents,
-        paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
-        totalAmount: isNaN(totalAmount) ? 0 : totalAmount
+    // 5. Jana senarai nombor resit — pembayar utama + running number untuk tanggungan
+    // Contoh: DW 077703 → tanggungan 1: DW 077704, tanggungan 2: DW 077705
+    const receiptNumbers: string[] = [receiptNumber];
+    
+    if (data.zakatType !== 'HARTA' && safeDependents > 0) {
+      // Ekstrak kod (DW/CS) dan nombor digit dari receiptNumber
+      const prefixMatch = receiptNumber.match(/^([A-Z]{2})\s*/i);
+      const prefix = prefixMatch ? prefixMatch[1].toUpperCase() + ' ' : '';
+      const digits = receiptNumber.replace(/^[A-Z]{2}\s*/i, '').replace(/\D/g, '');
+      const baseNum = parseInt(digits, 10);
+      
+      if (!isNaN(baseNum)) {
+        for (let i = 1; i <= safeDependents; i++) {
+          const nextNum = String(baseNum + i).padStart(digits.length || 6, '0');
+          receiptNumbers.push(`${prefix}${nextNum}`);
+        }
       }
+    }
+
+    // 6. Semak semua nombor resit untuk elak pendua
+    const existingReceipts = await prisma.receipt.findMany({
+      where: { receiptNumber: { in: receiptNumbers } },
+      select: { receiptNumber: true }
+    });
+    
+    if (existingReceipts.length > 0) {
+      const dupeNums = existingReceipts.map(r => r.receiptNumber).join(', ');
+      return NextResponse.json({ 
+        success: false, 
+        error: `Nombor resit berikut telah pun wujud dalam sistem: ${dupeNums}`
+      }, { status: 400 });
+    }
+
+    // 7. Cipta semua rekod (pembayar + tanggungan) sekaligus
+    const pricePerPax = data.zakatType !== 'HARTA' && (dependents + 1) > 0 
+      ? safeTotalAmount / (dependents + 1) 
+      : safeTotalAmount;
+
+    const receiptDataList = receiptNumbers.map((rNum, idx) => ({
+      receiptNumber: rNum,
+      payerName: idx === 0 ? payerName : `Tanggungan ${idx} - ${payerName || 'Pembayar Zakat'}`,
+      zakatType: data.zakatType || 'FITRAH',
+      riceTypeId: validRiceTypeId,
+      amilId: user.id,
+      payerIcNumber: idx === 0 ? payerIcNumber : null,
+      isVerified: Boolean(data.isVerified && !data.isQuickMode),
+      isWakalah: Boolean(data.isWakalah),
+      isSedekah: false,
+      paidAmount: parseFloat(pricePerPax.toFixed(2)),
+      sedekahAmount: 0,
+      imageUrl: idx === 0 ? safeImageUrl : null, // Gambar hanya pada rekod utama
+      dependents: idx === 0 ? safeDependents : 0,
+      paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
+      totalAmount: parseFloat(pricePerPax.toFixed(2))
+    }));
+
+    // Gunakan createMany untuk kecekapan — satu request sahaja ke DB
+    await prisma.receipt.createMany({ data: receiptDataList });
+
+    // Ambil rekod utama (pembayar) untuk dikembalikan ke frontend
+    const createdReceipt = await prisma.receipt.findUnique({
+      where: { receiptNumber: receiptNumber }
     });
 
-    return NextResponse.json({ success: true, data: receipt });
+    return NextResponse.json({ 
+      success: true, 
+      data: createdReceipt,
+      totalCreated: receiptNumbers.length,
+      receiptNumbers 
+    });
   } catch (error: any) {
     console.error("Ralat simpan resit:", error);
     return NextResponse.json({ 
       success: false, 
+
       error: error?.message || 'Gagal menyimpan rekod resit ke dalam sistem.' 
     }, { status: 500 });
   }

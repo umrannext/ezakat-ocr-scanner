@@ -109,7 +109,7 @@ export default async function InfoPage() {
             {/* Kad Ciri Resit Zakat Harta */}
             <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50/50 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-amber-950 text-sm">🪙 Resit Zakat Harta (Borang A)</span>
+                <span className="font-bold text-amber-950 text-sm">🪙 Resit Zakat Harta</span>
                 <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-300">
                   Lanskap (16:9)
                 </span>

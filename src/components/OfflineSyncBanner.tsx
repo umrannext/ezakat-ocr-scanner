@@ -78,7 +78,7 @@ export default function OfflineSyncBanner() {
   }
 
   return (
-    <div className="sticky top-0 z-50 w-full px-3 pt-2 pb-1 transition-all">
+    <div className="sticky top-0 z-50 w-full px-3 pt-2 pb-1 transition-all print:hidden">
       {/* 1. Mesej Kejayaan Sync */}
       {syncSuccessMsg && (
         <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-lg flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top duration-300">

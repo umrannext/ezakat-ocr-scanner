@@ -87,8 +87,8 @@ export default function ScanPage() {
       const blob = await res.blob();
       const file = new File([blob], "receipt.jpg", { type: "image/jpeg" });
       const compressed = await imageCompression(file, {
-        maxSizeMB: 0.15,
-        maxWidthOrHeight: 1100,
+        maxSizeMB: 0.4,        // Lebih besar → lebih tajam → OCR lebih tepat
+        maxWidthOrHeight: 1600, // 1600px optimal untuk Tesseract ketepatan tinggi
         useWebWorker: true,
       });
 
@@ -250,8 +250,8 @@ export default function ScanPage() {
       const blob = await res.blob();
       const file = new File([blob], "receipt.jpg", { type: "image/jpeg" });
       const compressed = await imageCompression(file, {
-        maxSizeMB: 0.15,
-        maxWidthOrHeight: 1100,
+        maxSizeMB: 0.4,        // Lebih besar → lebih tajam → OCR lebih tepat
+        maxWidthOrHeight: 1600, // 1600px optimal untuk Tesseract ketepatan tinggi
         useWebWorker: true,
       });
 
@@ -365,9 +365,9 @@ export default function ScanPage() {
                     : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-amber-500/40'
                 }`}
               >
-                <div className="w-12 h-12 rounded-xl bg-amber-500/25 border border-amber-400/30 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
-                  🪙
-                </div>
+                <div className="w-12 h-12 rounded-xl bg-amber-500/25 border border-amber-400/30 flex items-center justify-center text-xl group-hover:scale-110 transition-transform shrink-0 gap-0.5">
+                    💵🪙
+                  </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-extrabold text-white">Zakat Harta</h3>
@@ -378,7 +378,7 @@ export default function ScanPage() {
                     )}
                   </div>
                   <p className="text-[11px] text-amber-300/80 font-medium truncate mt-0.5">
-                    Borang A (Wang Simpanan, Emas, Perniagaan)
+                    (Wang Simpanan, Emas, Perniagaan)
                   </p>
                 </div>
               </button>
@@ -395,31 +395,31 @@ export default function ScanPage() {
                   setShowTypeModal(false);
                 }}
                 className={`w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3.5 group active:scale-[0.98] transition-all ${
-                  isQuickMode && receiptType === 'FITRAH'
-                    ? 'bg-amber-500/25 border-amber-400 shadow-xl shadow-amber-500/20'
-                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-amber-400/50'
-                }`}
+                    isQuickMode && receiptType === 'FITRAH'
+                      ? 'bg-purple-600/30 border-purple-400 shadow-xl shadow-purple-500/30'
+                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-purple-400/50'
+                  }`}
               >
-                <div className="w-12 h-12 rounded-xl bg-amber-500/30 border border-amber-400/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0">
-                  ⚡
-                </div>
+                <div className="w-12 h-12 rounded-xl bg-purple-500/30 border border-purple-400/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0 drop-shadow-md">
+                    ⚡
+                  </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-extrabold text-white flex items-center gap-1.5">
                       <span>Quick Scan</span>
-                      <span className="text-[10px] font-black text-amber-950 bg-amber-400 px-2 py-0.5 rounded-full">
-                        Arkib Pukal
-                      </span>
+                      <span className="text-[10px] font-black text-purple-950 bg-yellow-400 px-2 py-0.5 rounded-full">
+                          Arkib Pukal
+                        </span>
                     </h3>
                     {isQuickMode && receiptType === 'FITRAH' && (
-                      <span className="text-[10px] font-bold text-amber-300 bg-amber-500/30 px-2 py-0.5 rounded-full border border-amber-400/30">
-                        Aktif
-                      </span>
-                    )}
+                        <span className="text-[10px] font-bold text-purple-300 bg-purple-500/30 px-2 py-0.5 rounded-full border border-purple-400/30">
+                          Aktif
+                        </span>
+                      )}
                   </div>
-                  <p className="text-[11px] text-amber-200/90 font-medium truncate mt-0.5">
-                    Khas resit fitrah lama (Abaikan nama, IC &amp; tarikh)
-                  </p>
+                  <p className="text-[11px] text-purple-200/90 font-medium truncate mt-0.5">
+                      Khas resit fitrah lama (Abaikan nama, IC &amp; tarikh)
+                    </p>
                 </div>
               </button>
             </div>
@@ -645,7 +645,7 @@ export default function ScanPage() {
                 onClick={() => setShowTypeModal(true)}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border backdrop-blur-md text-xs font-black shadow-lg transition-all active:scale-95 ${
                   isQuickMode && receiptType === 'FITRAH'
-                    ? 'bg-amber-500/30 border-amber-400 text-amber-300 hover:bg-amber-500/40'
+                      ? 'bg-purple-500/40 border-purple-400 text-purple-200 hover:bg-purple-500/50'
                     : receiptType === 'HARTA'
                       ? 'bg-amber-500/25 border-amber-400/70 text-amber-300 hover:bg-amber-500/35'
                       : 'bg-teal-500/25 border-teal-400/70 text-teal-300 hover:bg-teal-500/35'
