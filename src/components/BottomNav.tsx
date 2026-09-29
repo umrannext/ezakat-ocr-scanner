@@ -88,7 +88,7 @@ export default function BottomNav({ userRole }: { userRole?: string | null }) {
       </Link>
 
       {/* 5. SENARAI AMIL / PROFIL SAYA */}
-      {userRole === 'ADMIN' ? (
+      {(userRole === 'ADMIN' || userRole === 'STAFF') ? (
         <Link 
           href="/amils" 
           className={`flex flex-col items-center justify-end h-13 pb-0.5 transition-all duration-300 ${
@@ -96,7 +96,9 @@ export default function BottomNav({ userRole }: { userRole?: string | null }) {
           }`}
         >
           <Users size={22} strokeWidth={pathname === '/amils' ? 2.5 : 2} className="drop-shadow-sm mb-1" />
-          <span className="text-[10px] font-bold tracking-tight truncate max-w-full px-0.5">Senarai Amil</span>
+          <span className="text-[10px] font-bold tracking-tight truncate max-w-full px-0.5">
+            {userRole === 'STAFF' ? 'Staf' : 'Senarai Amil'}
+          </span>
         </Link>
       ) : (
         <Link 

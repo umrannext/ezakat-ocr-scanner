@@ -108,14 +108,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-5 bg-white/5 border border-white/10 rounded-xl p-3.5 text-center">
-          <p className="text-[11px] text-slate-300 mb-1.5 font-bold uppercase tracking-widest">💡 Panduan Log Masuk</p>
-          <div className="flex flex-col gap-1.5 text-[11px] text-slate-400">
-            <p><span className="text-teal-300 font-semibold w-12 inline-block text-left">Admin:</span> ID: <code className="text-white font-mono bg-black/20 px-1 rounded">admin</code></p>
-            <p><span className="text-blue-300 font-semibold w-12 inline-block text-left">Staf:</span> ID: <code className="text-white font-mono bg-black/20 px-1 rounded">staf</code></p>
-          </div>
-        </div>
-        
         <div className="mt-5 text-center border-t border-white/10 pt-5">
           <button onClick={() => router.push('/info')} className="text-teal-400 hover:text-teal-300 text-sm font-bold tracking-wide transition-colors">
             Panduan & Info Sistem →

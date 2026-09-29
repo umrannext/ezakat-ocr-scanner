@@ -1,13 +1,23 @@
 import { PrismaClient } from '@prisma/client'
+import crypto from 'crypto'
 
 const prisma = new PrismaClient()
 
+const hashPassword = (password: string) => {
+  return crypto.createHash('sha256').update(password).digest('hex');
+};
+
 async function main() {
+  // Padam data lama jika ada
+  await prisma.receipt.deleteMany({})
+  await prisma.user.deleteMany({})
+  await prisma.riceType.deleteMany({})
+
   await prisma.user.createMany({
     data: [
-      { loginId: 'admin', name: 'Pentadbir Utama', password: '123', role: 'ADMIN' },
-      { loginId: 'AMIL-Z01-001', name: 'Amil Zakat BM', password: '123', role: 'AMIL' },
-      { loginId: 'staff1', name: 'Staf Arkib JUZWAB', password: '123', role: 'STAFF' }
+      { loginId: 'admin', name: 'Pentadbir Utama', password: hashPassword('123'), role: 'ADMIN' },
+      { loginId: 'AMIL-Z01-001', name: 'Amil Zakat BM', password: hashPassword('123'), role: 'AMIL' },
+      { loginId: 'staf', name: 'Staf Arkib JUZWAB', password: hashPassword('123'), role: 'STAFF' }
     ]
   })
   

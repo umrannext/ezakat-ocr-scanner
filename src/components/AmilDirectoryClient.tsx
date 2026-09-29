@@ -21,7 +21,7 @@ export type AmilData = {
   receipts: { totalAmount: number }[];
 };
 
-export default function AmilDirectoryClient({ initialAmils = [] }: { initialAmils?: AmilData[] }) {
+export default function AmilDirectoryClient({ initialAmils = [], userRole }: { initialAmils?: AmilData[], userRole?: string }) {
   const [amils, setAmils] = useState<AmilData[]>(initialAmils);
   const [loading, setLoading] = useState(initialAmils.length === 0);
   const [error, setError] = useState<string | null>(null);
@@ -224,84 +224,88 @@ export default function AmilDirectoryClient({ initialAmils = [] }: { initialAmil
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-[100px]">
       {/* Header Bar */}
-      <div className="bg-white/80 backdrop-blur-md p-4 flex justify-between items-center shadow-sm sticky top-0 z-20 border-b border-slate-200/50">
-        <h1 className="font-bold text-slate-800 ml-2 tracking-tight text-lg">Direktori Amil</h1>
+      <div className={`p-4 flex justify-between items-center shadow-sm sticky top-0 z-20 border-b ${userRole === 'STAFF' ? 'bg-emerald-600 border-emerald-700 text-white' : 'bg-white/80 backdrop-blur-md border-slate-200/50'}`}>
+        <h1 className={`font-bold ml-2 tracking-tight text-lg ${userRole === 'STAFF' ? 'text-white' : 'text-slate-800'}`}>Direktori Amil</h1>
         <div className="flex items-center gap-2 mr-1">
           <button 
             type="button"
             onClick={fetchAmils}
             disabled={loading}
-            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 hover:text-teal-600 active:rotate-180 transition-all disabled:opacity-50"
+            className={`p-1.5 rounded-full transition-all disabled:opacity-50 ${userRole === 'STAFF' ? 'hover:bg-emerald-500 text-emerald-100 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-teal-600'} active:rotate-180`}
             title="Muat semula senarai"
           >
-            <RefreshCw size={17} className={loading ? "animate-spin text-teal-600" : ""} />
+            <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
           </button>
-          <div className="bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs font-bold">
+          <div className={`px-3 py-1 rounded-full text-xs font-bold ${userRole === 'STAFF' ? 'bg-emerald-700 text-emerald-100' : 'bg-teal-100 text-teal-700'}`}>
             {filteredAmils.length} Amil
           </div>
         </div>
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Butang Navigasi ke Direktori Staf */}
-        <button
-          onClick={() => window.location.href = '/staff'}
-          className="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-2xl p-3 flex items-center justify-between transition-all active:scale-95 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
-              <Users size={20} />
-            </div>
-            <div className="text-left">
-              <h3 className="font-bold text-sm">Direktori Staf JUZWAB</h3>
-              <p className="text-[10px] font-medium opacity-80">Urus profil staf arkib dan pentadbiran</p>
-            </div>
-          </div>
-          <span className="text-blue-500 font-bold text-xs bg-white px-2 py-1 rounded-lg shadow-xs">Buka &rarr;</span>
-        </button>
-        {/* PANEL KHAS ADMIN: BULK ASSIGN & TEMPLATE EXCEL */}
-        <div className="bg-gradient-to-r from-teal-800 to-emerald-800 rounded-3xl p-4.5 text-white shadow-md relative overflow-hidden">
-          <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
-          
-          <div className="flex items-center justify-between mb-3 relative z-10">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-white/15 rounded-xl backdrop-blur-md">
-                <FileSpreadsheet size={20} className="text-teal-200" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-sm tracking-wide">Pengurusan Pukal Amil (Excel)</h3>
-                <p className="text-[11px] text-teal-100 font-medium">Lantik & kemaskini sehingga 180+ amil serentak</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5 pt-1 relative z-10">
-            {/* Butang 1: Muat Turun Template */}
+        {userRole === 'ADMIN' && (
+          <>
+            {/* Butang Navigasi ke Direktori Staf */}
             <button
-              type="button"
-              onClick={downloadTemplate}
-              className="bg-white/15 hover:bg-white/25 active:scale-95 border border-white/20 text-white rounded-2xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-bold transition-all shadow-xs"
+              onClick={() => window.location.href = '/staff'}
+              className="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-2xl p-3 flex items-center justify-between transition-all active:scale-95 shadow-sm"
             >
-              <Download size={15} className="text-teal-300" />
-              <span>Download Template</span>
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
+                  <Users size={20} />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-bold text-sm">Direktori Staf JUZWAB</h3>
+                  <p className="text-[10px] font-medium opacity-80">Urus profil staf arkib dan pentadbiran</p>
+                </div>
+              </div>
+              <span className="text-blue-500 font-bold text-xs bg-white px-2 py-1 rounded-lg shadow-xs">Buka &rarr;</span>
             </button>
+            {/* PANEL KHAS ADMIN: BULK ASSIGN & TEMPLATE EXCEL */}
+            <div className="bg-gradient-to-r from-teal-800 to-emerald-800 rounded-3xl p-4.5 text-white shadow-md relative overflow-hidden">
+              <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+              
+              <div className="flex items-center justify-between mb-3 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-white/15 rounded-xl backdrop-blur-md">
+                    <FileSpreadsheet size={20} className="text-teal-200" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm tracking-wide">Pengurusan Pukal Amil (Excel)</h3>
+                    <p className="text-[11px] text-teal-100 font-medium">Lantik & kemaskini sehingga 180+ amil serentak</p>
+                  </div>
+                </div>
+              </div>
 
-            {/* Butang 2: Buka Modal Bulk Assign */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowBulkModal(true);
-                setUploadResult(null);
-                setParsedAmils([]);
-                setFileName('');
-              }}
-              className="bg-teal-500 hover:bg-teal-400 active:scale-95 text-slate-950 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-black transition-all shadow-md shadow-teal-950/20"
-            >
-              <Upload size={15} />
-              <span>Bulk Assign (XLSX)</span>
-            </button>
-          </div>
-        </div>
+              <div className="grid grid-cols-2 gap-2.5 pt-1 relative z-10">
+                {/* Butang 1: Muat Turun Template */}
+                <button
+                  type="button"
+                  onClick={downloadTemplate}
+                  className="bg-white/15 hover:bg-white/25 active:scale-95 border border-white/20 text-white rounded-2xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-bold transition-all shadow-xs"
+                >
+                  <Download size={15} className="text-teal-300" />
+                  <span>Download Template</span>
+                </button>
+
+                {/* Butang 2: Buka Modal Bulk Assign */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBulkModal(true);
+                    setUploadResult(null);
+                    setParsedAmils([]);
+                    setFileName('');
+                  }}
+                  className="bg-teal-500 hover:bg-teal-400 active:scale-95 text-slate-950 rounded-2xl py-2.5 px-3 flex items-center justify-center gap-2 text-xs font-black transition-all shadow-md shadow-teal-950/20"
+                >
+                  <Upload size={15} />
+                  <span>Bulk Assign (XLSX)</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Controls: Search & Filter */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3 sticky top-[72px] z-10">
@@ -415,13 +419,15 @@ export default function AmilDirectoryClient({ initialAmils = [] }: { initialAmil
                       </div>
                     </div>
                     
-                    <div className="mt-2 pt-3 border-t border-slate-100 flex justify-between items-center">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kutipan Amil Ini</p>
-                      <div className="text-right">
-                        <p className="text-sm font-black text-teal-600">${(amil.receipts || []).reduce((sum, r) => sum + (r.totalAmount || 0), 0).toFixed(2)}</p>
-                        <p className="text-[9px] text-slate-400 font-bold mt-0.5">{(amil.receipts || []).length} Resit</p>
+                    {userRole === 'ADMIN' && (
+                      <div className="mt-2 pt-3 border-t border-slate-100 flex justify-between items-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kutipan Amil Ini</p>
+                        <div className="text-right">
+                          <p className="text-sm font-black text-teal-600">${(amil.receipts || []).reduce((sum, r) => sum + (r.totalAmount || 0), 0).toFixed(2)}</p>
+                          <p className="text-[9px] text-slate-400 font-bold mt-0.5">{(amil.receipts || []).length} Resit</p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>

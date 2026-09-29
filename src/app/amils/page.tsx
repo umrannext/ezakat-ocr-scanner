@@ -10,7 +10,7 @@ export default async function AmilsPage() {
   const role = cookieStore.get('auth_role')?.value;
 
   if (!userId) redirect('/login');
-  if (role && role !== 'ADMIN') redirect('/');
+  if (role && role !== 'ADMIN' && role !== 'STAFF') redirect('/');
 
-  return <AmilDirectoryClient />;
+  return <AmilDirectoryClient userRole={role} />;
 }
