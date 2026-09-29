@@ -65,7 +65,13 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
           _count: { id: true }
         }),
         !isNotAdmin ? prisma.receipt.groupBy({
-          by: ['zakatType', 'riceTypeId'],
+          by: ['zakatType', 'riceTypeId', 'hartaSubtype'],
+          where: {
+            OR: [
+              { riceType: { activeYear: currentYear } }, 
+              { AND: [{ zakatType: 'HARTA' }] }
+            ]
+          },
           _sum: { totalAmount: true },
           _count: { id: true }
         }) : Promise.resolve([]),
@@ -76,9 +82,12 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
       
       if (!isNotAdmin) {
         adminData = {
-          wangi: { amount: 0, count: 0 },
-          siam: { amount: 0, count: 0 },
-          harta: { amount: 0, count: 0 }
+          totalSiam: { amount: 0, count: 0 },
+          totalWangi: { amount: 0, count: 0 },
+          hartaSimpanan: { amount: 0, count: 0 },
+          hartaPerniagaan: { amount: 0, count: 0 },
+          hartaEmas: { amount: 0, count: 0 },
+          overallTotal: 0
         } as any;
         
         const riceMap = new Map(riceTypesList.map(r => [r.id, r.name.toLowerCase()]));
@@ -86,18 +95,31 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
         adminGroupedReceipts.forEach((r: any) => {
           const sumAmount = r._sum.totalAmount || 0;
           const countId = r._count.id || 0;
+          adminData.overallTotal += sumAmount;
           
           if (r.zakatType === 'HARTA') {
-            adminData.harta.amount += sumAmount;
-            adminData.harta.count += countId;
+            const subtype = (r.hartaSubtype || '').toLowerCase();
+            if (subtype.includes('simpanan')) {
+              adminData.hartaSimpanan.amount += sumAmount;
+              adminData.hartaSimpanan.count += countId;
+            } else if (subtype.includes('perniagaan')) {
+              adminData.hartaPerniagaan.amount += sumAmount;
+              adminData.hartaPerniagaan.count += countId;
+            } else if (subtype.includes('emas') || subtype.includes('perak')) {
+              adminData.hartaEmas.amount += sumAmount;
+              adminData.hartaEmas.count += countId;
+            } else {
+              adminData.hartaSimpanan.amount += sumAmount;
+              adminData.hartaSimpanan.count += countId;
+            }
           } else {
             const riceName = riceMap.get(r.riceTypeId) || '';
             if (riceName.includes('wangi')) {
-              adminData.wangi.amount += sumAmount;
-              adminData.wangi.count += countId;
+              adminData.totalWangi.amount += sumAmount;
+              adminData.totalWangi.count += countId;
             } else {
-              adminData.siam.amount += sumAmount;
-              adminData.siam.count += countId;
+              adminData.totalSiam.amount += sumAmount;
+              adminData.totalSiam.count += countId;
             }
           }
         });
@@ -171,7 +193,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
         </header>
 
         {user.role === 'ADMIN' ? (
-          <AdminDashboard data={adminData} />
+          <AdminDashboard data={adminData} currentYear={currentYear} />
         ) : (
           <div className="bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-400 rounded-[2rem] p-7 text-white shadow-[0_20px_40px_-15px_rgba(20,184,166,0.5)] mb-10 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl transform translate-x-20 -translate-y-10 group-hover:scale-110 transition-transform duration-700"></div>

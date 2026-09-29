@@ -69,6 +69,7 @@ model Receipt {
   paymentDate   DateTime @default(now())
   totalAmount   Float    @default(0)
   zakatType     String   @default("FITRAH") // "FITRAH" or "HARTA"
+  hartaSubtype  String?  // e.g. "Wang Simpanan", "Perniagaan"
   
   paidAmount    Float    @default(0)
   

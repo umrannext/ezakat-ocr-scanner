@@ -162,6 +162,7 @@ export async function POST(req: Request) {
         receiptNumber: receiptNumber,
         payerName: payerName,
         zakatType: data.zakatType || 'FITRAH',
+        hartaSubtype: data.hartaSubtype || null,
         riceTypeId: validRiceTypeId,
         amilId: user.id,
         payerIcNumber: payerIcNumber,
