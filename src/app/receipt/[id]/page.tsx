@@ -4,36 +4,19 @@ import { Printer, CheckCircle2, Download } from 'lucide-react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 
-export default async function ReceiptPage(props: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export default async function ReceiptPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const searchParams = await props.searchParams;
-  const isGroup = searchParams?.group === 'true';
 
-  let receipt;
-  let groupReceipts: any[] = [];
-  
-  if (isGroup) {
-    groupReceipts = await prisma.receipt.findMany({
-      where: { groupId: params.id },
-      include: {
-        amil: { select: { name: true, mosque: { include: { zone: true } } } },
-        riceType: true,
-      },
-      orderBy: { createdAt: 'asc' }
-    });
-    
-    if (groupReceipts.length === 0) notFound();
-    receipt = groupReceipts[0];
-  } else {
-    receipt = await prisma.receipt.findUnique({
-      where: { id: params.id },
-      include: {
-        amil: { select: { name: true, mosque: { include: { zone: true } } } },
-        riceType: true,
-      }
-    });
-    if (!receipt) notFound();
-    groupReceipts = [receipt];
+  const receipt = await prisma.receipt.findUnique({
+    where: { id: params.id },
+    include: {
+      amil: { select: { name: true, mosque: { include: { zone: true } } } },
+      riceType: true,
+    }
+  });
+
+  if (!receipt) {
+    notFound();
   }
 
   const isHarta = receipt.zakatType === 'HARTA';
@@ -132,34 +115,42 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
           </div>
           
           {/* SALINAN ASAL RESIT DIARKIB */}
-          {(groupReceipts.some(r => r.imageUrl) || groupReceipts.some(r => r.remarks)) && (
+          {(receipt.imageUrl || receipt.dependentImages.length > 0 || receipt.missingDependents > 0) && (
             <div className="p-5 border-t border-dashed border-slate-300 bg-slate-50/50 text-center">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2.5">
                 Salinan Imej Resit Fizikal Diarkib
               </span>
               <div className="space-y-4">
-                {groupReceipts.map((r, idx) => (
-                  <div key={r.id} className="relative">
-                    {groupReceipts.length > 1 && (
-                      <div className="text-[9px] font-black text-slate-400 mb-1">
-                        Resit Tanggungan {idx + 1} ({r.receiptNumber})
-                      </div>
+                {/* Main Receipt Image */}
+                {receipt.imageUrl && (
+                  <div className="relative">
+                    {receipt.dependents > 0 && (
+                      <div className="text-[9px] font-black text-slate-400 mb-1">Resit Utama ({receipt.receiptNumber})</div>
                     )}
-                    {r.imageUrl ? (
-                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
-                        <img 
-                          src={r.imageUrl} 
-                          alt={`Resit Asal ${r.receiptNumber}`} 
-                          className="max-h-56 w-auto object-contain mx-auto"
-                        />
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-100 p-4 text-slate-500 text-xs font-bold">
-                        {r.remarks || "Tiada salinan imej diarkibkan."}
-                      </div>
-                    )}
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
+                      <img src={receipt.imageUrl} alt="Resit Utama" className="max-h-56 w-auto object-contain mx-auto" />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Dependent Receipt Images */}
+                {receipt.dependentImages.map((img, idx) => (
+                  <div key={`dep-${idx}`} className="relative">
+                    <div className="text-[9px] font-black text-slate-400 mb-1">
+                      Resit Tanggungan {idx + 1} {receipt.dependentReceipts[idx] ? `(${receipt.dependentReceipts[idx]})` : ''}
+                    </div>
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
+                      <img src={img} alt={`Resit Tanggungan ${idx + 1}`} className="max-h-56 w-auto object-contain mx-auto" />
+                    </div>
                   </div>
                 ))}
+                
+                {/* Missing Dependents Info */}
+                {receipt.missingDependents > 0 && (
+                  <div className="rounded-xl border border-dashed border-red-300 bg-red-50 p-4 text-red-600 text-xs font-bold mt-2">
+                    {receipt.missingDependents} resit tanggungan ditandakan hilang (Resit fizikal tidak dijumpai).
+                  </div>
+                )}
               </div>
             </div>
           )}

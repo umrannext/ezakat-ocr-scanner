@@ -74,6 +74,10 @@ model Receipt {
   groupId       String?  // Untuk satukan beberapa resit fitrah (tanggungan) dalam 1 e-resit
   remarks       String?  // Untuk nota "Resit tidak dijumpai", dll.
   
+  dependentImages String[] @default([]) // Array imej resit tanggungan (Base64)
+  dependentReceipts String[] @default([]) // Array nombor resit tanggungan
+  missingDependents Int @default(0) // Bilangan resit tanggungan yang tidak dijumpai
+  
   paidAmount    Float    @default(0)
   
   amilId        String

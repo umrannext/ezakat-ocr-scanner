@@ -364,50 +364,63 @@ export default function ReviewPage() {
         imageUrl: (compressedThumb && compressedThumb.length < 150000) ? compressedThumb : null
       };
 
-      // Check Multi Scan Session
-      const existingGroupId = sessionStorage.getItem('multiGroupId');
-      if (existingGroupId) {
-        payload.groupId = existingGroupId;
-      } else if (formData.zakatType === 'FITRAH' && formData.dependents > 0) {
-        payload.groupId = Math.random().toString(36).substring(2, 10);
-      }
-
-      const res = await fetch('/api/receipts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      let res;
+      let data;
       
-      const data = await res.json();
+      const parentReceiptId = sessionStorage.getItem('multiParentId');
+
+      if (isMultiScan && parentReceiptId) {
+        // APPEND to existing parent receipt
+        res = await fetch('/api/receipts/append', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: parentReceiptId,
+            imageUrl: payload.imageUrl,
+            receiptNumber: payload.receiptNumber
+          })
+        });
+        data = await res.json();
+      } else {
+        // CREATE new base receipt
+        res = await fetch('/api/receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        data = await res.json();
+      }
 
       if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
         
-        // Handle Multi Scan flow
-        if (payload.groupId) {
-          let currentIdx = parseInt(sessionStorage.getItem('multiCurrent') || '0');
-          let totalDep = parseInt(sessionStorage.getItem('multiTotal') || formData.dependents.toString());
+        // Handle Multi Scan flow (Initial Setup)
+        if (!isMultiScan && formData.zakatType === 'FITRAH' && formData.dependents > 0) {
+          sessionStorage.setItem('multiParentId', data.data.id);
+          sessionStorage.setItem('multiTotal', formData.dependents.toString());
+          sessionStorage.setItem('multiCurrent', '1');
           
-          if (currentIdx === 0) {
-            sessionStorage.setItem('multiGroupId', payload.groupId);
-            sessionStorage.setItem('multiTotal', totalDep.toString());
-            sessionStorage.setItem('multiCurrent', '1');
-            const basePayload = { ...payload, receiptNumber: '', imageUrl: null };
-            sessionStorage.setItem('multiBaseData', JSON.stringify(basePayload));
-          } else {
+          router.push('/scan?multi=true');
+          return;
+        }
+        
+        // Handle Multi Scan flow (Continuation)
+        if (isMultiScan) {
+          let currentIdx = parseInt(sessionStorage.getItem('multiCurrent') || '1');
+          let totalDep = parseInt(sessionStorage.getItem('multiTotal') || '1');
+          
+          if (currentIdx < totalDep) {
             currentIdx++;
             sessionStorage.setItem('multiCurrent', currentIdx.toString());
-          }
-
-          if (currentIdx <= totalDep) {
             router.push('/scan?multi=true');
             return;
           } else {
-            sessionStorage.removeItem('multiGroupId');
+            // Selesai tanggungan
+            const finalId = sessionStorage.getItem('multiParentId');
+            sessionStorage.removeItem('multiParentId');
             sessionStorage.removeItem('multiTotal');
             sessionStorage.removeItem('multiCurrent');
-            sessionStorage.removeItem('multiBaseData');
-            router.push(`/receipt/${payload.groupId}?group=true`);
+            router.push(`/receipt/${finalId}`);
             return;
           }
         }

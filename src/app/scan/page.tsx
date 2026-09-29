@@ -340,31 +340,24 @@ export default function ScanPage() {
                 setShowCancelOptions(false);
                 setIsProcessing(true);
                 setProcessingMsg('Merekodkan status resit tidak dijumpai...');
-                
-                // Hantar resit kosong dengan remarks
-                const basePayloadStr = sessionStorage.getItem('multiBaseData');
-                if (basePayloadStr) {
+                // Hantar rekod kosong / tanda tidak dijumpai ke API append
+                const parentReceiptId = sessionStorage.getItem('multiParentId');
+                if (parentReceiptId) {
                   try {
-                    const payload = JSON.parse(basePayloadStr);
-                    payload.remarks = 'Resit fizikal tidak dijumpai';
-                    
-                    const res = await fetch('/api/receipts', {
+                    const res = await fetch('/api/receipts/append', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(payload)
+                      body: JSON.stringify({ id: parentReceiptId, isMissing: true })
                     });
-                    
-                    const groupId = sessionStorage.getItem('multiGroupId');
                     
                     if (multiCurrent < multiTotal) {
                       sessionStorage.setItem('multiCurrent', (multiCurrent + 1).toString());
                       window.location.reload();
                     } else {
-                      sessionStorage.removeItem('multiGroupId');
+                      sessionStorage.removeItem('multiParentId');
                       sessionStorage.removeItem('multiTotal');
                       sessionStorage.removeItem('multiCurrent');
-                      sessionStorage.removeItem('multiBaseData');
-                      router.push(`/receipt/${groupId}?group=true`);
+                      router.push(`/receipt/${parentReceiptId}`);
                     }
                   } catch (e) {
                     alert('Ralat semasa merekod.');
@@ -376,12 +369,11 @@ export default function ScanPage() {
               </button>
               
               <button onClick={() => {
-                const groupId = sessionStorage.getItem('multiGroupId');
-                sessionStorage.removeItem('multiGroupId');
+                const parentId = sessionStorage.getItem('multiParentId');
+                sessionStorage.removeItem('multiParentId');
                 sessionStorage.removeItem('multiTotal');
                 sessionStorage.removeItem('multiCurrent');
-                sessionStorage.removeItem('multiBaseData');
-                router.push(`/receipt/${groupId}?group=true`);
+                router.push(`/receipt/${parentId}`);
               }} className="w-full py-3.5 bg-slate-800 border border-slate-700 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-all mt-4">
                 Batal Sesi & Tamat
               </button>
