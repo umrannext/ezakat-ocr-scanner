@@ -42,12 +42,12 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
 
     if (dbUser) {
       user = dbUser;
-      const isAmil = user.role === 'AMIL';
+      const isNotAdmin = user.role !== 'ADMIN';
 
       // Jalankan query secara serentak untuk kepantasan maksimum
       const [fetchedRecentReceipts, stats, adminReceipts] = await Promise.all([
         prisma.receipt.findMany({
-          where: isAmil ? { amilId: user.id } : {},
+          where: isNotAdmin ? { amilId: user.id } : {},
           orderBy: { createdAt: 'desc' },
           take: 10,
           select: {
@@ -60,25 +60,35 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
           }
         }),
         prisma.receipt.aggregate({
-          where: isAmil ? { amilId: user.id } : {},
+          where: isNotAdmin ? { amilId: user.id } : {},
           _sum: { totalAmount: true },
           _count: { id: true }
         }),
-        !isAmil ? prisma.receipt.findMany({
+        !isNotAdmin ? prisma.receipt.findMany({
           where: {
             OR: [
               { riceType: { activeYear: currentYear } }, 
               { AND: [{ zakatType: 'HARTA' }] }
             ]
           },
-          include: {
-            amil: { include: { mosque: { include: { zone: true } } } }
+          select: {
+            zakatType: true,
+            totalAmount: true,
+            amil: { 
+              select: { 
+                mosque: { 
+                  select: { 
+                    zone: { select: { name: true } } 
+                  } 
+                } 
+              } 
+            }
           }
         }) : Promise.resolve([])
       ]);
       
       recentReceipts = fetchedRecentReceipts;
-      if (!isAmil) {
+      if (!isNotAdmin) {
         const zoneMap = new Map();
         adminReceipts.forEach((r: any) => {
           if (r.zakatType === 'HARTA') {
