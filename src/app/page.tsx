@@ -132,10 +132,12 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
                 <div className="flex items-center gap-1 mt-1 text-slate-500 text-[11px] font-medium tracking-wide">
                   {user.role === 'ADMIN' ? (
                     <span className="bg-slate-800 text-white px-2 py-0.5 rounded-md text-[9px] uppercase tracking-widest font-bold">Admin Pusat</span>
+                  ) : user.role === 'STAFF' ? (
+                    <span className="bg-blue-600 text-white px-2 py-0.5 rounded-md text-[9px] uppercase tracking-widest font-bold">Staf Arkib JUZWAB</span>
                   ) : (
                     <>
                       <MapPin size={12} className="text-teal-500 shrink-0" />
-                      <span className="truncate max-w-[150px]">{user.mosque?.name} • {user.mosque?.zone?.name}</span>
+                      <span className="truncate max-w-[150px]">{user.mosque?.name || 'Kariah Masjid'} • {user.mosque?.zone?.name || 'Brunei'}</span>
                     </>
                   )}
                 </div>
@@ -170,7 +172,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
             <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
               <div>
                 <h2 className="text-[11px] font-bold mb-1 text-teal-100 uppercase tracking-widest opacity-90">
-                  Jumlah Kutipan Anda
+                  {user.role === 'STAFF' ? 'Status Arkib Keseluruhan' : 'Jumlah Kutipan Anda'}
                 </h2>
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-2xl font-bold text-teal-100/70">$</span>
@@ -178,7 +180,10 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
                 </div>
                 <div className="flex items-center gap-2 mt-1 mb-6">
                   <div className="inline-block bg-black/20 rounded-full px-3 py-1 backdrop-blur-sm border border-white/10">
-                    <p className="text-xs font-bold text-teal-50">Dari <span className="text-white">{totalReceipts}</span> Resit Pembayar</p>
+                    <p className="text-xs font-bold text-teal-50">
+                      {user.role === 'STAFF' ? 'Jumlah Keseluruhan: ' : 'Dari '}
+                      <span className="text-white">{totalReceipts}</span> Resit Diarkib
+                    </p>
                   </div>
                 </div>
               </div>

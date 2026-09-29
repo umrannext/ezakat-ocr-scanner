@@ -163,45 +163,85 @@ export async function POST(req: Request) {
       }
     }
 
-    // 6. Semak semua nombor resit untuk elak pendua
+    const foundStatusMap: Record<string, boolean> = data.foundStatusMap || {};
+
+    // 6. Semak semua nombor resit untuk elak pendua atau laksana pemulihan (reconciliation)
     const existingReceipts = await prisma.receipt.findMany({
-      where: { receiptNumber: { in: receiptNumbers } },
-      select: { receiptNumber: true }
+      where: { receiptNumber: { in: receiptNumbers } }
     });
     
+    const reconciledList: string[] = [];
+    const trulyDupeList: string[] = [];
+
     if (existingReceipts.length > 0) {
-      const dupeNums = existingReceipts.map(r => r.receiptNumber).join(', ');
-      return NextResponse.json({ 
-        success: false, 
-        error: `Nombor resit berikut telah pun wujud dalam sistem: ${dupeNums}`
-      }, { status: 400 });
+      for (const exist of existingReceipts) {
+        // Jika rekod sebelum ini berstatus TIDAK DIJUMPAI (false), dan sekarang staf menjumpainya:
+        if (exist.isPhysicalFound === false) {
+          await prisma.receipt.update({
+            where: { id: exist.id },
+            data: {
+              isPhysicalFound: true,
+              imageUrl: safeImageUrl || exist.imageUrl,
+              amilId: user.id, // Staf yang mengesahkan dijumpai
+              paymentDate: isNaN(paymentDate.getTime()) ? exist.paymentDate : paymentDate,
+              ...(payerName && !data.isQuickMode && { payerName }),
+              ...(payerIcNumber && !data.isQuickMode && { payerIcNumber })
+            }
+          });
+          reconciledList.push(exist.receiptNumber);
+        } else {
+          trulyDupeList.push(exist.receiptNumber);
+        }
+      }
+
+      if (trulyDupeList.length > 0) {
+        return NextResponse.json({ 
+          success: false, 
+          error: `Nombor resit berikut telah pun wujud dan disahkan 'Dijumpai' sebelum ini: ${trulyDupeList.join(', ')}`
+        }, { status: 400 });
+      }
     }
 
-    // 7. Cipta semua rekod (pembayar + tanggungan) sekaligus
+    // Tapis keluar nombor yang telah dikemaskini agar tidak dimasukkan semula
+    const newReceiptNumbers = receiptNumbers.filter(
+      rNum => !existingReceipts.some(e => e.receiptNumber === rNum)
+    );
+
+    // 7. Cipta rekod baharu yang belum wujud dalam pangkalan data
     const pricePerPax = data.zakatType !== 'HARTA' && (dependents + 1) > 0 
       ? safeTotalAmount / (dependents + 1) 
       : safeTotalAmount;
 
-    const receiptDataList = receiptNumbers.map((rNum, idx) => ({
-      receiptNumber: rNum,
-      payerName: idx === 0 ? payerName : `Tanggungan ${idx} - ${payerName || 'Pembayar Zakat'}`,
-      zakatType: data.zakatType || 'FITRAH',
-      riceTypeId: validRiceTypeId,
-      amilId: user.id,
-      payerIcNumber: idx === 0 ? payerIcNumber : null,
-      isVerified: Boolean(data.isVerified && !data.isQuickMode),
-      isWakalah: Boolean(data.isWakalah),
-      isSedekah: false,
-      paidAmount: parseFloat(pricePerPax.toFixed(2)),
-      sedekahAmount: 0,
-      imageUrl: idx === 0 ? safeImageUrl : null, // Gambar hanya pada rekod utama
-      dependents: idx === 0 ? safeDependents : 0,
-      paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
-      totalAmount: parseFloat(pricePerPax.toFixed(2))
-    }));
+    if (newReceiptNumbers.length > 0) {
+      const receiptDataList = newReceiptNumbers.map((rNum) => {
+        const isMain = rNum === receiptNumber;
+        const depIdx = receiptNumbers.indexOf(rNum);
+        // Tentukan status dijumpai: Resit utama selalu true, tanggungan ikut foundStatusMap
+        const isFound = isMain ? true : (foundStatusMap[rNum] !== undefined ? Boolean(foundStatusMap[rNum]) : true);
 
-    // Gunakan createMany untuk kecekapan — satu request sahaja ke DB
-    await prisma.receipt.createMany({ data: receiptDataList });
+        return {
+          receiptNumber: rNum,
+          payerName: isMain ? payerName : `Tanggungan ${depIdx} - ${payerName || 'Pembayar Zakat'}`,
+          zakatType: data.zakatType || 'FITRAH',
+          riceTypeId: validRiceTypeId,
+          amilId: user.id,
+          payerIcNumber: isMain ? payerIcNumber : null,
+          isVerified: Boolean(data.isVerified && !data.isQuickMode),
+          isWakalah: Boolean(data.isWakalah),
+          isSedekah: false,
+          paidAmount: parseFloat(pricePerPax.toFixed(2)),
+          sedekahAmount: 0,
+          imageUrl: isMain ? safeImageUrl : null,
+          dependents: isMain ? safeDependents : 0,
+          paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
+          totalAmount: parseFloat(pricePerPax.toFixed(2)),
+          isPhysicalFound: isFound
+        };
+      });
+
+      // Gunakan createMany untuk kecekapan — satu request sahaja ke DB
+      await prisma.receipt.createMany({ data: receiptDataList });
+    }
 
     // Ambil rekod utama (pembayar) untuk dikembalikan ke frontend
     const createdReceipt = await prisma.receipt.findUnique({
@@ -211,8 +251,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       success: true, 
       data: createdReceipt,
-      totalCreated: receiptNumbers.length,
-      receiptNumbers 
+      totalCreated: newReceiptNumbers.length,
+      reconciledCount: reconciledList.length,
+      reconciledReceipts: reconciledList,
+      receiptNumbers,
+      message: reconciledList.length > 0
+        ? `Resit ${reconciledList.join(', ')} yang sebelum ini berstatus 'Tidak Dijumpai' telah berjaya dikemaskini kepada 'Dijumpai'!`
+        : undefined
     });
   } catch (error: any) {
     console.error("Ralat simpan resit:", error);

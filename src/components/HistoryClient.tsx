@@ -75,10 +75,23 @@ export default function HistoryClient({
     }
   }, []);
 
-  let filtered = receipts.filter(r => 
-    r.payerName.toLowerCase().includes(search.toLowerCase()) || 
-    r.receiptNumber.toLowerCase().includes(search.toLowerCase())
-  );
+  const [physicalFilter, setPhysicalFilter] = useState<'ALL' | 'FOUND' | 'MISSING'>('ALL');
+
+  const foundCount = receipts.filter(r => r.isPhysicalFound !== false).length;
+  const missingCount = receipts.filter(r => r.isPhysicalFound === false).length;
+
+  let filtered = receipts.filter(r => {
+    const matchesSearch = 
+      (r.payerName || '').toLowerCase().includes(search.toLowerCase()) || 
+      (r.receiptNumber || '').toLowerCase().includes(search.toLowerCase());
+
+    const matchesPhysical = 
+      physicalFilter === 'ALL' ? true :
+      physicalFilter === 'FOUND' ? (r.isPhysicalFound !== false) :
+      (r.isPhysicalFound === false);
+
+    return matchesSearch && matchesPhysical;
+  });
 
   filtered = filtered.sort((a, b) => {
     if (sortBy === 'date_desc') return new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime();
@@ -143,7 +156,8 @@ export default function HistoryClient({
           payerName: editData.payerName,
           receiptNumber: editData.receiptNumber,
           dependents: isHarta ? 0 : editData.dependents,
-          totalAmount: newTotal
+          totalAmount: newTotal,
+          isPhysicalFound: editData.isPhysicalFound !== undefined ? editData.isPhysicalFound : true
         })
       });
       
@@ -217,6 +231,49 @@ export default function HistoryClient({
               <option value="amount_asc">Jumlah (Terendah)</option>
             </select>
           </div>
+        </div>
+
+        {/* TAB TAPISAN STATUS FIZIKAL (SEMUA / DIJUMPAI / HILANG) */}
+        <div className="flex items-center gap-1.5 mb-3.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setPhysicalFilter('ALL')}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 active:scale-95 ${
+              physicalFilter === 'ALL' 
+                ? 'bg-slate-800 text-white shadow-xs' 
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Semua ({receipts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setPhysicalFilter('FOUND')}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 flex items-center gap-1.5 active:scale-95 ${
+              physicalFilter === 'FOUND' 
+                ? 'bg-teal-600 text-white shadow-xs' 
+                : 'bg-white border border-slate-200 text-teal-700 hover:bg-teal-50'
+            }`}
+          >
+            <span>✓ Fizikal Ada</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${physicalFilter === 'FOUND' ? 'bg-teal-700 text-teal-100' : 'bg-teal-100/70 text-teal-800'}`}>
+              {foundCount}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPhysicalFilter('MISSING')}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 flex items-center gap-1.5 active:scale-95 ${
+              physicalFilter === 'MISSING' 
+                ? 'bg-red-600 text-white shadow-xs' 
+                : 'bg-white border border-slate-200 text-red-700 hover:bg-red-50'
+            }`}
+          >
+            <span>✗ Fizikal Hilang</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${physicalFilter === 'MISSING' ? 'bg-red-700 text-red-100' : 'bg-red-100/80 text-red-800'}`}>
+              {missingCount}
+            </span>
+          </button>
         </div>
 
         <div className="flex justify-between items-center mb-4 px-1">
@@ -299,6 +356,15 @@ export default function HistoryClient({
                         {isHarta && (
                           <span className="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-300 shrink-0">
                             HARTA
+                          </span>
+                        )}
+                        {receipt.isPhysicalFound === false ? (
+                          <span className="bg-red-100 text-red-700 text-[9px] font-black px-1.5 py-0.5 rounded border border-red-200 shrink-0">
+                            ✗ Fizikal Hilang
+                          </span>
+                        ) : (
+                          <span className="bg-teal-50 text-teal-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-teal-100 shrink-0">
+                            ✓ Fizikal Ada
                           </span>
                         )}
                       </div>
@@ -464,6 +530,40 @@ export default function HistoryClient({
                   <p className="text-[10px] text-teal-600 font-medium ml-1 mt-1">*Jumlah keseluruhan akan dikira semula secara automatik.</p>
                 </div>
               )}
+
+              {/* STATUS RESIT FIZIKAL */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Status Resit Fizikal</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditData({ ...editData, isPhysicalFound: true })}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      editData.isPhysicalFound !== false 
+                        ? 'bg-teal-600 text-white border-teal-600 shadow-xs' 
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    ✓ Fizikal Ada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditData({ ...editData, isPhysicalFound: false })}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all ${
+                      editData.isPhysicalFound === false 
+                        ? 'bg-red-600 text-white border-red-600 shadow-xs' 
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    ✗ Fizikal Hilang
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 ml-1">
+                  {editData.isPhysicalFound === false 
+                    ? 'Resit ditanda sebagai hilang. Staf boleh menukarnya kembali kepada Ada jika dijumpai.' 
+                    : 'Salinan fizikal resit ini telah disahkan wujud.'}
+                </p>
+              </div>
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-100 flex gap-3">

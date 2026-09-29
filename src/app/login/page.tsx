@@ -63,7 +63,7 @@ export default function LoginPage() {
         
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-black text-white tracking-tight">E-Zakat <span className="text-teal-400">OCR</span></h1>
-          <p className="text-sm text-slate-300 font-medium mt-2">Log Masuk Amil / Admin</p>
+          <p className="text-sm text-slate-300 font-medium mt-2">Log Masuk Amil / Staf / Admin</p>
         </div>
 
         {error && <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl text-sm font-bold text-center mb-6">{error}</div>}
@@ -110,7 +110,7 @@ export default function LoginPage() {
 
         <div className="mt-5 bg-white/5 border border-white/10 rounded-xl p-3 text-center">
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            <span className="text-teal-300 font-semibold">Admin:</span> <code className="text-white font-mono">admin</code> | <span className="text-teal-300 font-semibold">Amil:</span> <code className="text-white font-mono">AMIL-Z01-001</code>
+            <span className="text-teal-300 font-semibold">Admin:</span> <code className="text-white font-mono">admin</code> | <span className="text-teal-300 font-semibold">Staf:</span> <code className="text-white font-mono">staf</code> | <span className="text-teal-300 font-semibold">Amil:</span> <code className="text-white font-mono">AMIL-Z01-001</code>
           </p>
         </div>
         

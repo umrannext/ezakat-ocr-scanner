@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       });
     } catch (dbErr: any) {
       console.warn('DB lookup notice during auth:', dbErr?.message);
-      // Fallback kecemasan untuk akaun admin jika DB Supabase tergendala sementara
+      // Fallback kecemasan untuk akaun admin atau staf jika DB Supabase tergendala sementara
       if (cleanLoginId.toLowerCase() === 'admin' && cleanPassword === 'admin123') {
         user = {
           id: '63cbcbaa-f75b-4c3b-ad4b-559394d8c3e5',
@@ -38,6 +38,14 @@ export async function POST(req: Request) {
           name: 'Pentadbir Utama',
           password: hashPassword('admin123'),
           role: 'ADMIN'
+        };
+      } else if (cleanLoginId.toLowerCase() === 'staf' && cleanPassword === 'staf123') {
+        user = {
+          id: '88cbcbaa-f75b-4c3b-ad4b-559394d8c3e8',
+          loginId: 'staf',
+          name: 'Staf Arkib JUZWAB',
+          password: hashPassword('staf123'),
+          role: 'STAFF'
         };
       } else {
         throw dbErr;

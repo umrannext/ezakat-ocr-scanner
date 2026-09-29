@@ -23,7 +23,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     
     if (!receipt) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     
-    if (user?.role !== 'ADMIN' && receipt.amilId !== amilId) {
+    if (user?.role !== 'ADMIN' && user?.role !== 'STAFF' && receipt.amilId !== amilId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
@@ -46,7 +46,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     
     if (!receipt) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     
-    if (user?.role !== 'ADMIN' && receipt.amilId !== amilId) {
+    if (user?.role !== 'ADMIN' && user?.role !== 'STAFF' && receipt.amilId !== amilId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -57,7 +57,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         payerName: data.payerName,
         receiptNumber: data.receiptNumber,
         dependents: data.dependents,
-        totalAmount: data.totalAmount
+        totalAmount: data.totalAmount,
+        ...(data.isPhysicalFound !== undefined && { isPhysicalFound: Boolean(data.isPhysicalFound) })
       },
       include: { riceType: true }
     });

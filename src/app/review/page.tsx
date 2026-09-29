@@ -40,12 +40,15 @@ export default function ReviewPage() {
   const [generatedReceiptUrl, setGeneratedReceiptUrl] = useState<string | null>(null);
   const [savedReceiptNumbers, setSavedReceiptNumbers] = useState<string[]>([]);
   const [isQuickMode, setIsQuickMode] = useState(false);
+  const [foundStatusMap, setFoundStatusMap] = useState<Record<string, boolean>>({});
+  const [reconciledMessage, setReconciledMessage] = useState<string | null>(null);
 
   
   useEffect(() => {
     const qm = typeof window !== 'undefined' && sessionStorage.getItem('scanQuickMode') === 'true';
     if (qm) setIsQuickMode(true);
   }, []);
+
   
   const [riceTypes, setRiceTypes] = useState<any[]>([
     { id: 'bf3a55f9-4fec-40b3-b690-3136f8b6b71d', code: 'B_SIAM_1447H', name: 'Beras Siam', price: 1.93, activeYear: '1447H' },
@@ -321,6 +324,66 @@ export default function ReviewPage() {
     setIsVerifying(false);
   };
 
+  // Helper untuk mengira senarai nombor resit berjalan (running numbers)
+  const getGeneratedReceiptNumbers = () => {
+    const list: { receiptNumber: string; isMain: boolean; label: string }[] = [];
+    const baseNumber = formData.receiptNumber.trim();
+    if (!baseNumber) return list;
+
+    list.push({ receiptNumber: baseNumber, isMain: true, label: 'Pembayar Utama' });
+
+    if (formData.zakatType !== 'HARTA' && formData.dependents > 0) {
+      const prefixMatch = baseNumber.match(/^([A-Z]{2})\s*/i);
+      const prefix = prefixMatch ? prefixMatch[1].toUpperCase() + ' ' : '';
+      const digits = baseNumber.replace(/^[A-Z]{2}\s*/i, '').replace(/\D/g, '');
+      const baseNum = parseInt(digits, 10);
+
+      if (!isNaN(baseNum)) {
+        for (let i = 1; i <= formData.dependents; i++) {
+          const nextNum = String(baseNum + i).padStart(digits.length || 6, '0');
+          list.push({
+            receiptNumber: `${prefix}${nextNum}`,
+            isMain: false,
+            label: `Tanggungan ${i}`
+          });
+        }
+      }
+    }
+    return list;
+  };
+
+  const openConfirmModal = () => {
+    const nums = getGeneratedReceiptNumbers();
+    setFoundStatusMap(prev => {
+      const nextMap: Record<string, boolean> = {};
+      nums.forEach(item => {
+        nextMap[item.receiptNumber] = prev[item.receiptNumber] !== undefined ? prev[item.receiptNumber] : true;
+      });
+      return nextMap;
+    });
+    setShowConfirm(true);
+  };
+
+  const handleCheckAll = (status: boolean) => {
+    const nums = getGeneratedReceiptNumbers();
+    const nextMap: Record<string, boolean> = {};
+    nums.forEach(item => {
+      if (item.isMain) {
+        nextMap[item.receiptNumber] = true;
+      } else {
+        nextMap[item.receiptNumber] = status;
+      }
+    });
+    setFoundStatusMap(nextMap);
+  };
+
+  const toggleSingleFound = (rNum: string) => {
+    setFoundStatusMap(prev => ({
+      ...prev,
+      [rNum]: !(prev[rNum] ?? true)
+    }));
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setShowConfirm(false);
@@ -358,7 +421,8 @@ export default function ReviewPage() {
         riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
         totalAmount: parseFloat(totalAmount),
         zakatType: formData.zakatType,
-        imageUrl: compressedThumb
+        imageUrl: compressedThumb,
+        foundStatusMap: foundStatusMap
       };
 
       const res = await fetch('/api/receipts', {
@@ -371,6 +435,9 @@ export default function ReviewPage() {
 
       if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
+        if (data.message) {
+          setReconciledMessage(data.message);
+        }
         // E-Resit sentiasa dipaparkan selepas simpan berjaya
         if (data.data?.id) {
           setSavedReceiptNumbers(data.receiptNumbers || [data.data.receiptNumber]);
@@ -1238,7 +1305,7 @@ export default function ReviewPage() {
                 return;
               }
             }
-            setShowConfirm(true);
+            openConfirmModal();
           }}
           disabled={isSaving || (formData.zakatType === 'FITRAH' && riceTypes.length === 0)}
           className={`w-2/3 rounded-2xl py-4 font-bold shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-70 disabled:active:scale-100 ${
@@ -1261,33 +1328,33 @@ export default function ReviewPage() {
       {/* MODAL SAHKAN REKOD */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl transform transition-all">
-            <div className="text-center mb-6">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl transform transition-all max-h-[92vh] overflow-y-auto">
+            <div className="text-center mb-5">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 ${
                 formData.zakatType === 'HARTA' 
                   ? 'bg-amber-100 text-amber-700' 
                   : (isQuickMode ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-600')
               }`}>
-                {isQuickMode ? <Zap size={32} className="fill-current text-amber-600" /> : <AlertCircle size={32} />}
+                {isQuickMode ? <Zap size={28} className="fill-current text-amber-600" /> : <AlertCircle size={28} />}
               </div>
-              <h3 className="text-xl font-black text-slate-800">
+              <h3 className="text-lg font-black text-slate-800">
                 {formData.zakatType === 'HARTA' 
                   ? 'Sahkan Rekod Zakat Harta' 
                   : (isQuickMode ? 'Sahkan Arkib Zakat Fitrah' : 'Sahkan Rekod Zakat Fitrah')}
               </h3>
-              <p className="text-sm text-slate-500 mt-2 font-medium">
+              <p className="text-xs text-slate-500 mt-1 font-medium">
                 {formData.zakatType === 'HARTA' 
                   ? 'Sila pastikan 5-angka nombor resit & jumlah bayaran adalah tepat.' 
                   : (isQuickMode 
-                      ? 'Mod Pantas Arkib: Nama, Kad Pintar dan Tarikh tidak direkodkan. Hanya No. Resit, Tahun Hijrah & Muzakki disimpan.' 
+                      ? 'Mod Pantas Arkib: No. Resit, Tahun & Bilangan Muzakki akan disimpan.' 
                       : 'Sila pastikan butiran resit adalah tepat sebelum disimpan.')}
               </p>
             </div>
             
-            <div className="bg-slate-50 rounded-2xl p-4 space-y-3 mb-6 text-sm">
+            <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2.5 mb-4 text-xs">
               <div className="flex justify-between border-b border-slate-200 pb-2">
                 <span className="text-slate-500 font-medium">No. Resit</span>
-                <span className={`font-mono font-black ${formData.zakatType === 'HARTA' ? 'text-red-600 text-base' : 'text-slate-900'}`}>
+                <span className={`font-mono font-black ${formData.zakatType === 'HARTA' ? 'text-red-600 text-sm' : 'text-slate-900'}`}>
                   {formData.receiptNumber}
                   {formData.zakatType === 'HARTA' && (
                     <span className="text-[10px] text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded ml-1 font-bold">5-Angka</span>
@@ -1304,11 +1371,11 @@ export default function ReviewPage() {
                     {isQuickMode ? 'Arkib Zakat Fitrah' : (formData.payerName || 'Pembayar Zakat')}
                   </span>
                   {isQuickMode ? (
-                    <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
+                    <span className="text-[9px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
                       Dikosongkan (Mod Arkib)
                     </span>
                   ) : (isWakalah && (
-                    <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
+                    <span className="text-[9px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded-full inline-block mt-0.5">
                       Wakalah (Mewakili)
                     </span>
                   ))}
@@ -1334,7 +1401,7 @@ export default function ReviewPage() {
                     <span className="text-slate-500 font-medium">Beras</span>
                     <span className="font-bold text-slate-800">
                       {selectedRice?.name || (isReceiptDW ? 'Beras Wangi' : 'Beras Siam')}
-                      <span className="text-xs font-semibold text-slate-500 ml-1.5">
+                      <span className="text-[11px] font-semibold text-slate-500 ml-1.5">
                         (${currentPrice.toFixed(2)})
                       </span>
                     </span>
@@ -1349,12 +1416,12 @@ export default function ReviewPage() {
               )}
 
               <div className="flex justify-between pt-1 items-center">
-                <span className={`font-bold uppercase tracking-wider text-xs mt-1 ${
+                <span className={`font-bold uppercase tracking-wider text-[11px] mt-1 ${
                   formData.zakatType === 'HARTA' ? 'text-amber-800' : 'text-teal-600'
                 }`}>
                   Jumlah Bayaran
                 </span>
-                <span className={`text-2xl font-black ${
+                <span className={`text-xl font-black ${
                   formData.zakatType === 'HARTA' ? 'text-amber-900' : 'text-teal-700'
                 }`}>
                   ${totalAmount}
@@ -1362,19 +1429,116 @@ export default function ReviewPage() {
               </div>
             </div>
 
+            {/* PENGESAHAN STATUS RESIT FIZIKAL TANGGUNGAN */}
+            {formData.zakatType !== 'HARTA' && formData.dependents > 0 && (
+              <div className="mb-5 bg-teal-50/50 border border-teal-200 rounded-2xl p-3.5 space-y-3 text-left">
+                <div className="flex items-center justify-between gap-1 flex-wrap">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📑 Resit Fizikal Tanggungan</span>
+                      <span className="text-[10px] font-black text-teal-800 bg-teal-200/80 px-2 py-0.5 rounded-full">
+                        {formData.dependents} Resit
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
+                      Sahkan adakah resit fizikal distaple/dijumpai:
+                    </p>
+                  </div>
+
+                  {/* Butang Tindakan Pukal: Semua Dijumpai / Nyahpilih */}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleCheckAll(true)}
+                      className="text-[10px] font-bold px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-all active:scale-95 shadow-xs"
+                    >
+                      ✓ Semua Ada
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCheckAll(false)}
+                      className="text-[10px] font-bold px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-all active:scale-95"
+                    >
+                      ✗ Kosongkan
+                    </button>
+                  </div>
+                </div>
+
+                {/* Senarai Nombor Resit Tanggungan dengan Checkbox Satu-Persatu */}
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {getGeneratedReceiptNumbers().map((item) => {
+                    if (item.isMain) {
+                      return (
+                        <div key={item.receiptNumber} className="flex items-center justify-between p-2 bg-white rounded-xl border border-teal-200 shadow-2xs">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-md bg-teal-600 text-white text-[10px] font-black flex items-center justify-center">✓</span>
+                            <div>
+                              <p className="font-mono font-bold text-xs text-slate-800">{item.receiptNumber}</p>
+                              <p className="text-[9px] text-slate-400 font-semibold">{item.label} (Resit Diimbas)</p>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-black text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                            ✓ Dijumpai
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    const isFound = foundStatusMap[item.receiptNumber] ?? true;
+
+                    return (
+                      <div 
+                        key={item.receiptNumber}
+                        onClick={() => toggleSingleFound(item.receiptNumber)}
+                        className={`flex items-center justify-between p-2 rounded-xl border cursor-pointer select-none transition-all active:scale-[0.99] ${
+                          isFound 
+                            ? 'bg-white border-teal-200 shadow-2xs' 
+                            : 'bg-red-50/70 border-red-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input 
+                            type="checkbox"
+                            checked={isFound}
+                            onChange={() => {}} // dikawal oleh container onClick
+                            className="w-4 h-4 rounded text-teal-600 accent-teal-600 cursor-pointer pointer-events-none"
+                          />
+                          <div>
+                            <p className="font-mono font-bold text-xs text-slate-800">{item.receiptNumber}</p>
+                            <p className="text-[9px] text-slate-500 font-medium">{item.label}</p>
+                          </div>
+                        </div>
+                        
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${
+                          isFound 
+                            ? 'text-teal-700 bg-teal-50 border-teal-200' 
+                            : 'text-red-700 bg-red-100 border-red-200'
+                        }`}>
+                          {isFound ? '✓ Dijumpai' : '✗ Tidak Dijumpai'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[9px] text-slate-400 italic leading-snug">
+                  *Resit 'Tidak Dijumpai' tetap disimpan dalam database. Jika staf lain mengimbasnya kelak, status akan bertukar kepada 'Dijumpai' secara automatik.
+                </p>
+              </div>
+            )}
+
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="w-1/2 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl active:scale-95 transition-all">
+              <button onClick={() => setShowConfirm(false)} className="w-1/2 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl active:scale-95 text-xs">
                 Semak Semula
               </button>
               <button 
                 onClick={handleSave} 
-                className={`w-1/2 font-bold py-3.5 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center ${
+                className={`w-1/2 font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center text-xs ${
                   formData.zakatType === 'HARTA' 
                     ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black shadow-amber-500/30' 
                     : 'bg-teal-600 hover:bg-teal-700 text-white shadow-teal-500/30'
                 }`}
               >
-                Ya, Simpan
+                Ya, Sahkan & Simpan
               </button>
             </div>
           </div>
@@ -1389,25 +1553,41 @@ export default function ReviewPage() {
               <CheckCircle2 size={32} />
             </div>
             <h3 className="text-xl font-black text-slate-800 mb-1">✅ Disimpan!</h3>
+
+            {/* Mesej Pemulihan (Reconciliation) jika ada resit yang sebelum ini hilang kini dijumpai */}
+            {reconciledMessage && (
+              <div className="mb-3 p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold text-left">
+                🎉 {reconciledMessage}
+              </div>
+            )}
+
             <p className="text-sm text-slate-500 mb-3 font-medium">
               {savedReceiptNumbers.length > 1 
-                ? `${savedReceiptNumbers.length} rekod (pembayar + ${savedReceiptNumbers.length - 1} tanggungan)` 
-                : 'Rekod tersimpan di pangkalan data.'}
+                ? `${savedReceiptNumbers.length} rekod disimpan (${savedReceiptNumbers.length} nombor running number):` 
+                : 'Rekod telah tersimpan di pangkalan data.'}
             </p>
 
-            {/* Senarai Running Number Tanggungan */}
+            {/* Senarai Running Number Tanggungan dengan Status Dijumpai / Tidak */}
             {savedReceiptNumbers.length > 0 && (
               <div className="bg-slate-50 rounded-xl p-3 mb-4 text-left border border-slate-200">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Nombor Resit Diarkib:</p>
                 <div className="space-y-1.5">
-                  {savedReceiptNumbers.map((rNum, idx) => (
-                    <div key={rNum} className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${idx === 0 ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-600'}`}>
-                        {idx === 0 ? 'Pembayar' : `Tggungan ${idx}`}
-                      </span>
-                      <span className="font-mono font-bold text-sm text-slate-800">{rNum}</span>
-                    </div>
-                  ))}
+                  {savedReceiptNumbers.map((rNum, idx) => {
+                    const isFound = idx === 0 ? true : (foundStatusMap[rNum] ?? true);
+                    return (
+                      <div key={rNum} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white border border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${idx === 0 ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-600'}`}>
+                            {idx === 0 ? 'Pembayar' : `Tggungan ${idx}`}
+                          </span>
+                          <span className="font-mono font-bold text-xs text-slate-800">{rNum}</span>
+                        </div>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${isFound ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                          {isFound ? '✓ Dijumpai' : '✗ Hilang'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1435,6 +1615,8 @@ export default function ReviewPage() {
               onClick={() => {
                 setGeneratedReceiptUrl(null);
                 setSavedReceiptNumbers([]);
+                setReconciledMessage(null);
+                setFoundStatusMap({});
                 if (isQuickMode && formData.zakatType === 'FITRAH') {
                   sessionStorage.setItem('scanQuickMode', 'true');
                   sessionStorage.setItem('scanReceiptType', 'FITRAH');

@@ -80,6 +80,21 @@ export default function ProfilePage() {
           </div>
           <h2 className="text-xl font-black text-slate-800 mt-4">{user.name}</h2>
           <p className="text-sm font-bold text-slate-400 mt-1 tracking-wide">{user.loginId}</p>
+          <div className="mt-2">
+            {user.role === 'ADMIN' ? (
+              <span className="bg-slate-800 text-white px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-black">
+                Pentadbir Sistem (Admin)
+              </span>
+            ) : user.role === 'STAFF' ? (
+              <span className="bg-blue-700 text-white px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-black">
+                Staf Arkib JUZWAB
+              </span>
+            ) : (
+              <span className="bg-teal-700 text-white px-2.5 py-1 rounded-md text-[10px] uppercase tracking-widest font-black">
+                Amil Lantikan
+              </span>
+            )}
+          </div>
           
           <div className="w-full bg-slate-50 rounded-2xl p-4 mt-6 text-left flex items-start gap-3 border border-slate-100">
             <MapPin className="text-teal-500 mt-0.5 shrink-0" size={18} />

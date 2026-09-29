@@ -30,7 +30,7 @@ model User {
   loginId     String   @unique // e.g., "AMIL-Z01-001" or "admin"
   name        String
   password    String
-  role        String   // "AMIL" or "ADMIN"
+  role        String   // "AMIL", "STAFF", "ADMIN"
   position    String?  // e.g., "Imam", "Bilal"
   phoneNumber String?  // e.g., "012-3456789"
   mosqueId    String?
@@ -69,6 +69,7 @@ model Receipt {
   paymentDate   DateTime @default(now())
   totalAmount   Float    @default(0)
   zakatType     String   @default("FITRAH") // "FITRAH" or "HARTA"
+  isPhysicalFound Boolean @default(true) // true = Fizikal Dijumpai, false = Fizikal Tidak Dijumpai (Hilang/Tertanggal)
   
   isSedekah     Boolean  @default(false)
   paidAmount    Float    @default(0)

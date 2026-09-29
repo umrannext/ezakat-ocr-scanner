@@ -53,11 +53,24 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
             <div className="absolute -right-3 -top-3 w-6 h-6 bg-slate-100 rounded-full print:hidden"></div>
             
             <div className="space-y-4">
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">No. Resit</span>
-                <span className={`font-mono font-black text-lg ${isHarta ? 'text-red-600' : 'text-slate-800'}`}>
-                  {receipt.receiptNumber}
-                </span>
+              <div className="flex justify-between items-center">
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">No. Resit</span>
+                  <span className={`font-mono font-black text-lg ${isHarta ? 'text-red-600' : 'text-slate-800'}`}>
+                    {receipt.receiptNumber}
+                  </span>
+                </div>
+                <div>
+                  {receipt.isPhysicalFound === false ? (
+                    <span className="text-[10px] font-black bg-red-100 text-red-700 border border-red-200 px-2.5 py-1 rounded-lg">
+                      ✗ Fizikal Hilang
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-lg">
+                      ✓ Fizikal Ada
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div className="flex flex-col">
@@ -112,6 +125,22 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
             </div>
           </div>
           
+          {/* SALINAN ASAL RESIT DIARKIB */}
+          {receipt.imageUrl && (
+            <div className="p-5 border-t border-dashed border-slate-300 bg-slate-50/50 text-center">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2.5">
+                Salinan Imej Resit Fizikal Diarkib
+              </span>
+              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
+                <img 
+                  src={receipt.imageUrl} 
+                  alt={`Resit Asal ${receipt.receiptNumber}`} 
+                  className="max-h-56 w-auto object-contain mx-auto"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="p-6 flex flex-col items-center justify-center border-t border-dashed border-slate-300">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Imbas untuk versi E-Resit</span>
               <div className="p-2 bg-white rounded-lg border border-slate-200">
