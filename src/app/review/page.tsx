@@ -347,9 +347,7 @@ export default function ReviewPage() {
         payerName: finalPayerName,
         icNumber: finalIcNumber,
         isWakalah: Boolean(isWakalah),
-        isSedekah: false,
         paidAmount: parseFloat(totalAmount),
-        sedekahAmount: 0,
         riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
         totalAmount: parseFloat(totalAmount),
         zakatType: formData.zakatType,
@@ -1167,6 +1165,15 @@ export default function ReviewPage() {
             <p className="text-sm text-slate-500 mb-3 font-medium">
               Rekod {savedReceiptData.receiptNumber} telah tersimpan di pangkalan data arkib.
             </p>
+            
+            <div className="flex justify-center gap-2 mb-5">
+              <span className="flex items-center gap-1 bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                <CheckCircle2 size={12} /> Data Synced
+              </span>
+              <span className="flex items-center gap-1 bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                <CheckCircle2 size={12} /> Image Synced
+              </span>
+            </div>
             
             {formData.zakatType === 'FITRAH' && formData.dependents > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-left">

@@ -318,6 +318,12 @@ export default function HistoryClient({
                           {receipt.amil.loginId}
                         </p>
                       )}
+                      <div className="flex gap-1 mt-1">
+                        <span className="text-[8px] font-bold text-teal-600 bg-teal-50 px-1 py-0.5 rounded border border-teal-100 flex items-center gap-0.5">✓ Data Synced</span>
+                        {receipt.imageUrl && (
+                          <span className="text-[8px] font-bold text-teal-600 bg-teal-50 px-1 py-0.5 rounded border border-teal-100 flex items-center gap-0.5">✓ Image Synced</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right flex flex-col items-end shrink-0 ml-2">

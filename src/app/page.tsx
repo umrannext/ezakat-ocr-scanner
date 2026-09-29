@@ -31,7 +31,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
   let receipts: any[] = [];
   let totalAmount = 0;
   let totalReceipts = 0;
-  let adminData = { totalFitrah: 0, totalHarta: 0, totalSedekah: 0, countFitrah: 0, countHarta: 0, zoneStats: [] as any[] };
+  let adminData = { totalFitrah: 0, totalHarta: 0, countFitrah: 0, countHarta: 0, zoneStats: [] as any[] };
   let recentReceipts: any[] = [];
 
   try {
@@ -61,7 +61,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
         }),
         prisma.receipt.aggregate({
           where: isAmil ? { amilId: user.id } : {},
-          _sum: { totalAmount: true, sedekahAmount: true },
+          _sum: { totalAmount: true },
           _count: { id: true }
         }),
         !isAmil ? prisma.receipt.findMany({
@@ -81,7 +81,6 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
       if (!isAmil) {
         const zoneMap = new Map();
         adminReceipts.forEach((r: any) => {
-          adminData.totalSedekah += (r.sedekahAmount || 0);
           if (r.zakatType === 'HARTA') {
             adminData.totalHarta += r.totalAmount;
             adminData.countHarta += 1;

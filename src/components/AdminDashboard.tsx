@@ -48,16 +48,7 @@ export default function AdminDashboard({ data, currentYear }: { data: any, curre
             <p className="text-[10px] font-bold text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded-lg border border-amber-200/50">{data.countHarta || 0} Resit</p>
           </div>
         </div>
-        <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 border border-purple-100 rounded-2xl p-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-purple-600 uppercase tracking-widest mb-1 flex items-center gap-1">
-                Sedekah Am <HandHeart size={12} />
-              </p>
-              <p className="text-2xl font-black text-slate-800">${data.totalSedekah.toFixed(2)}</p>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       <div>
@@ -83,7 +74,7 @@ export default function AdminDashboard({ data, currentYear }: { data: any, curre
           <Download size={18} />
           Muat Turun Database Penuh (CSV)
         </a>
-        <p className="text-center text-[10px] text-slate-400 mt-2">Termasuk perincian timestamp, sedekah, & wakalah</p>
+        <p className="text-center text-[10px] text-slate-400 mt-2">Termasuk perincian timestamp & wakalah</p>
       </div>
     </div>
   );
