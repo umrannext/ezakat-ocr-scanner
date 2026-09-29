@@ -12,7 +12,12 @@ const isAdmin = async () => {
 };
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const amilId = (await cookies()).get('auth_token')?.value;
+  let amilId = (await cookies()).get('auth_token')?.value;
+  if (!amilId) {
+    const cookieHeader = req.headers.get('cookie') || '';
+    const match = cookieHeader.match(/auth_token=([^;]+)/);
+    if (match) amilId = match[1];
+  }
   if (!amilId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   try {
@@ -35,7 +40,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const amilId = (await cookies()).get('auth_token')?.value;
+  let amilId = (await cookies()).get('auth_token')?.value;
+  if (!amilId) {
+    const cookieHeader = req.headers.get('cookie') || '';
+    const match = cookieHeader.match(/auth_token=([^;]+)/);
+    if (match) amilId = match[1];
+  }
   if (!amilId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   try {

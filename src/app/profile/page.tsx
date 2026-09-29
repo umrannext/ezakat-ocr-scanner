@@ -154,6 +154,19 @@ export default function ProfilePage() {
             {isSaving ? 'Menyimpan...' : 'Simpan Profil'}
           </button>
         </form>
+
+        {user.role === 'ADMIN' && (
+          <div className="mt-8 bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-3 mb-4">Menu Pentadbir Sistem</h3>
+            <button
+              onClick={() => router.push('/staff')}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2 active:scale-95 transition-all"
+            >
+              <Briefcase size={20} />
+              Pengurusan Staf JUZWAB
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
