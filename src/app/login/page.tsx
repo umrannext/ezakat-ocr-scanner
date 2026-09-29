@@ -63,7 +63,6 @@ export default function LoginPage() {
         
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-black text-white tracking-tight">E-Zakat <span className="text-teal-400">OCR</span></h1>
-          <p className="text-sm text-slate-300 font-medium mt-2">Log Masuk Amil / Staf / Admin</p>
         </div>
 
         {error && <div className="bg-red-500/20 border border-red-500/50 text-red-200 p-3 rounded-xl text-sm font-bold text-center mb-6">{error}</div>}
