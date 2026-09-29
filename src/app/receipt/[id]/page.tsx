@@ -60,17 +60,6 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
                     {receipt.receiptNumber}
                   </span>
                 </div>
-                <div>
-                  {receipt.isPhysicalFound === false ? (
-                    <span className="text-[10px] font-black bg-red-100 text-red-700 border border-red-200 px-2.5 py-1 rounded-lg">
-                      ✗ Fizikal Hilang
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-lg">
-                      ✓ Fizikal Ada
-                    </span>
-                  )}
-                </div>
               </div>
               
               <div className="flex flex-col">
