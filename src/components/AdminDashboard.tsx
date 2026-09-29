@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -36,11 +36,17 @@ export default function AdminDashboard({ data, currentYear }: { data: any, curre
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-100 rounded-2xl p-4">
           <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-1">Zakat Fitrah</p>
-          <p className="text-2xl font-black text-slate-800">${data.totalFitrah.toFixed(2)}</p>
+          <div className="flex justify-between items-end">
+            <p className="text-2xl font-black text-slate-800">${data.totalFitrah.toFixed(2)}</p>
+            <p className="text-[10px] font-bold text-teal-700 bg-teal-100/60 px-2 py-0.5 rounded-lg border border-teal-200/50">{data.countFitrah || 0} Resit</p>
+          </div>
         </div>
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 rounded-2xl p-4">
           <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">Zakat Harta</p>
-          <p className="text-2xl font-black text-slate-800">${data.totalHarta.toFixed(2)}</p>
+          <div className="flex justify-between items-end">
+            <p className="text-2xl font-black text-slate-800">${data.totalHarta.toFixed(2)}</p>
+            <p className="text-[10px] font-bold text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded-lg border border-amber-200/50">{data.countHarta || 0} Resit</p>
+          </div>
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 border border-purple-100 rounded-2xl p-4">
           <div className="flex justify-between items-start">

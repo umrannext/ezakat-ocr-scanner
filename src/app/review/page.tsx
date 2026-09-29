@@ -817,99 +817,7 @@ export default function ReviewPage() {
                 </p>
               </div>
 
-              {/* KATEGORI JENIS ZAKAT HARTA */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                  Kategori Zakat Harta
-                </label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {[
-                    { id: 'Wang Simpanan', label: '💰 Wang Simpanan' },
-                    { id: 'Emas & Perak', label: '🪙 Emas & Perak' },
-                    { id: 'Perniagaan', label: '🏪 Perniagaan' },
-                    { id: 'Pendapatan', label: '💼 Pendapatan' },
-                    { id: 'Saham & Pelaburan', label: '📈 Saham / Pelaburan' },
-                    { id: 'Lain-lain Harta', label: '📦 Lain-lain Harta' },
-                  ].map(cat => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setFormData({...formData, hartaSubtype: cat.id})}
-                      className={`p-2.5 rounded-xl border text-left font-bold transition-all ${
-                        formData.hartaSubtype === cat.id
-                          ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-sm'
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* KAEDAH BAYARAN (TUNAI VS CEK) */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                  Kaedah Bayaran
-                </label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({...formData, hartaPaymentMethod: 'TUNAI'})}
-                    className={`py-2 px-3 rounded-xl border font-bold transition-all ${
-                      formData.hartaPaymentMethod === 'TUNAI'
-                        ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    💵 Tunai
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({...formData, hartaPaymentMethod: 'CEK'})}
-                    className={`py-2 px-3 rounded-xl border font-bold transition-all ${
-                      formData.hartaPaymentMethod === 'CEK'
-                        ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    📑 Cek / Bank
-                  </button>
-                </div>
-
-                {/* Butiran Cek jika dipilih */}
-                {formData.hartaPaymentMethod === 'CEK' && (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                        Nama Bank
-                      </label>
-                      <input 
-                        type="text"
-                        placeholder="Contoh: BIBD / Baiduri"
-                        value={formData.bankName}
-                        onChange={e => setFormData({...formData, bankName: e.target.value})}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                        Nombor Cek
-                      </label>
-                      <input 
-                        type="text"
-                        placeholder="Contoh: 0012345"
-                        value={formData.chequeNumber}
-                        onChange={e => {
-                          const roman = convertArabicIndicToRomanDigits(e.target.value);
-                          setFormData({...formData, chequeNumber: roman});
-                        }}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* KATEGORI DAN KAEDAH BAYARAN ZAKAT HARTA DIBUANG ATAS PERMINTAAN */}
 
             </div>
           ) : (
@@ -1265,7 +1173,7 @@ export default function ReviewPage() {
               <p className={`text-[10px] mt-0.5 ${
                 formData.zakatType === 'HARTA' ? 'text-amber-700' : 'text-teal-600'
               }`}>
-                {formData.zakatType === 'HARTA' ? `Kategori: ${formData.hartaSubtype}` : `(${totalMuzakki} Muzakki) × $${currentPrice.toFixed(2)}`}
+                {formData.zakatType === 'HARTA' ? `Zakat Harta` : `(${totalMuzakki} Muzakki) × $${currentPrice.toFixed(2)}`}
               </p>
             </div>
             <p className={`text-2xl font-black ${
@@ -1382,20 +1290,7 @@ export default function ReviewPage() {
                 </div>
               </div>
               
-              {formData.zakatType === 'HARTA' ? (
-                <>
-                  <div className="flex justify-between border-b border-slate-200 pb-2">
-                    <span className="text-slate-500 font-medium">Kategori Harta</span>
-                    <span className="font-bold text-amber-900">{formData.hartaSubtype}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200 pb-2">
-                    <span className="text-slate-500 font-medium">Kaedah Bayaran</span>
-                    <span className="font-bold text-slate-800">
-                      {formData.hartaPaymentMethod === 'CEK' ? (formData.bankName ? `Cek (${formData.bankName})` : 'Cek / Bank') : 'Tunai'}
-                    </span>
-                  </div>
-                </>
-              ) : (
+              {formData.zakatType !== 'HARTA' && (
                 <>
                   <div className="flex justify-between border-b border-slate-200 pb-2">
                     <span className="text-slate-500 font-medium">Beras</span>

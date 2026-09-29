@@ -31,7 +31,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
   let receipts: any[] = [];
   let totalAmount = 0;
   let totalReceipts = 0;
-  let adminData = { totalFitrah: 0, totalHarta: 0, totalSedekah: 0, zoneStats: [] as any[] };
+  let adminData = { totalFitrah: 0, totalHarta: 0, totalSedekah: 0, countFitrah: 0, countHarta: 0, zoneStats: [] as any[] };
   let recentReceipts: any[] = [];
 
   try {
@@ -84,8 +84,10 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
           adminData.totalSedekah += (r.sedekahAmount || 0);
           if (r.zakatType === 'HARTA') {
             adminData.totalHarta += r.totalAmount;
+            adminData.countHarta += 1;
           } else {
             adminData.totalFitrah += r.totalAmount;
+            adminData.countFitrah += 1;
             const zoneName = r.amil?.mosque?.zone?.name || 'Lain-lain';
             zoneMap.set(zoneName, (zoneMap.get(zoneName) || 0) + r.totalAmount);
           }
