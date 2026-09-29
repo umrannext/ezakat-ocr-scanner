@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
-import OfflineSyncBanner from "@/components/OfflineSyncBanner";
 import { cookies } from "next/headers";
 import prisma from '@/lib/prisma';
 
@@ -28,7 +27,6 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies();
   const userId = cookieStore.get('auth_token')?.value;
-  // Dapatkan role terus daripada kuki untuk menghapuskan query DB pada setiap muat turun halaman
   let userRole = cookieStore.get('auth_role')?.value || null;
   
   if (userId && !userRole) {
@@ -36,7 +34,7 @@ export default async function RootLayout({
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
       userRole = user?.role || 'AMIL';
     } catch (e) {
-      userRole = 'AMIL'; // Sandaran selamat tanpa menjatuhkan aplikasi
+      userRole = 'AMIL';
     }
   }
 
@@ -44,7 +42,6 @@ export default async function RootLayout({
     <html lang="ms">
       <body className={`${font.className} bg-gray-100 text-slate-800 antialiased min-h-screen flex justify-center print:min-h-0 print:bg-white`}>
         <div className="w-full max-w-md bg-[#F8FAFC] min-h-screen shadow-2xl relative pb-20 print:pb-0 print:shadow-none print:min-h-0 print:bg-white overflow-x-hidden">
-          <OfflineSyncBanner />
           {children}
           <BottomNav userRole={userRole} />
         </div>
