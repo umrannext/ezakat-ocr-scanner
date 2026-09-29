@@ -351,7 +351,7 @@ export default function ReviewPage() {
         riceTypeId: formData.zakatType === 'HARTA' ? null : (formData.riceTypeId || selectedRice?.id),
         totalAmount: parseFloat(totalAmount),
         zakatType: formData.zakatType,
-        imageUrl: compressedThumb
+        imageUrl: (compressedThumb && compressedThumb.length < 150000) ? compressedThumb : null
       };
 
       const res = await fetch('/api/receipts', {
