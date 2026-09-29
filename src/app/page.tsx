@@ -45,7 +45,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
       const isNotAdmin = user.role !== 'ADMIN';
 
       // Jalankan query secara serentak untuk kepantasan maksimum
-      const [fetchedRecentReceipts, stats, adminReceipts] = await Promise.all([
+      const [fetchedRecentReceipts, stats, adminGroupedReceipts, amilList] = await Promise.all([
         prisma.receipt.findMany({
           where: isNotAdmin ? { amilId: user.id } : {},
           orderBy: { createdAt: 'desc' },
@@ -64,44 +64,51 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
           _sum: { totalAmount: true },
           _count: { id: true }
         }),
-        !isNotAdmin ? prisma.receipt.findMany({
+        !isNotAdmin ? prisma.receipt.groupBy({
+          by: ['amilId', 'zakatType'],
           where: {
             OR: [
               { riceType: { activeYear: currentYear } }, 
               { AND: [{ zakatType: 'HARTA' }] }
             ]
           },
+          _sum: { totalAmount: true },
+          _count: { id: true }
+        }) : Promise.resolve([]),
+        !isNotAdmin ? prisma.user.findMany({
           select: {
-            zakatType: true,
-            totalAmount: true,
-            amil: { 
-              select: { 
-                mosque: { 
-                  select: { 
-                    zone: { select: { name: true } } 
-                  } 
-                } 
-              } 
+            id: true,
+            mosque: {
+              select: { zone: { select: { name: true } } }
             }
           }
         }) : Promise.resolve([])
       ]);
       
       recentReceipts = fetchedRecentReceipts;
+      
       if (!isNotAdmin) {
         const zoneMap = new Map();
-        adminReceipts.forEach((r: any) => {
+        const amilZoneMap = new Map(amilList.map(a => [a.id, a.mosque?.zone?.name || 'Lain-lain']));
+
+        adminGroupedReceipts.forEach((r: any) => {
+          const sumAmount = r._sum.totalAmount || 0;
+          const countId = r._count.id || 0;
+          
           if (r.zakatType === 'HARTA') {
-            adminData.totalHarta += r.totalAmount;
-            adminData.countHarta += 1;
+            adminData.totalHarta += sumAmount;
+            adminData.countHarta += countId;
           } else {
-            adminData.totalFitrah += r.totalAmount;
-            adminData.countFitrah += 1;
-            const zoneName = r.amil?.mosque?.zone?.name || 'Lain-lain';
-            zoneMap.set(zoneName, (zoneMap.get(zoneName) || 0) + r.totalAmount);
+            adminData.totalFitrah += sumAmount;
+            adminData.countFitrah += countId;
+            const zoneName = amilZoneMap.get(r.amilId) || 'Lain-lain';
+            zoneMap.set(zoneName, (zoneMap.get(zoneName) || 0) + sumAmount);
           }
         });
-        adminData.zoneStats = Array.from(zoneMap.entries()).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount);
+        
+        adminData.zoneStats = Array.from(zoneMap.entries())
+          .map(([name, amount]) => ({ name, amount }))
+          .sort((a, b) => b.amount - a.amount);
       }
 
       receipts = recentReceipts;
