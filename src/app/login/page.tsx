@@ -108,10 +108,13 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-5 bg-white/5 border border-white/10 rounded-xl p-3 text-center">
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            <span className="text-teal-300 font-semibold">Admin:</span> <code className="text-white font-mono">admin</code> | <span className="text-teal-300 font-semibold">Staf:</span> <code className="text-white font-mono">staf</code> | <span className="text-teal-300 font-semibold">Amil:</span> <code className="text-white font-mono">AMIL-Z01-001</code>
-          </p>
+        <div className="mt-5 bg-white/5 border border-white/10 rounded-xl p-3.5 text-center">
+          <p className="text-[11px] text-slate-300 mb-1.5 font-bold uppercase tracking-widest">💡 Panduan Log Masuk</p>
+          <div className="flex flex-col gap-1.5 text-[11px] text-slate-400">
+            <p><span className="text-teal-300 font-semibold w-12 inline-block text-left">Admin:</span> ID: <code className="text-white font-mono bg-black/20 px-1 rounded">admin</code> | Kata Laluan: <code className="text-white font-mono bg-black/20 px-1 rounded">admin123</code></p>
+            <p><span className="text-blue-300 font-semibold w-12 inline-block text-left">Staf:</span> ID: <code className="text-white font-mono bg-black/20 px-1 rounded">staf</code> | Kata Laluan: <code className="text-white font-mono bg-black/20 px-1 rounded">staf123</code></p>
+            <p><span className="text-emerald-300 font-semibold w-12 inline-block text-left">Amil:</span> ID: <code className="text-white font-mono bg-black/20 px-1 rounded">AMIL-Z01-001</code> | Kata Laluan: <code className="text-white font-mono bg-black/20 px-1 rounded">123456</code></p>
+          </div>
         </div>
         
         <div className="mt-5 text-center border-t border-white/10 pt-5">

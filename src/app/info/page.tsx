@@ -289,29 +289,27 @@ export default async function InfoPage() {
           </div>
 
           <p className="text-xs text-slate-600 leading-relaxed">
-            Sekiranya kutipan zakat diadakan di kawasan kariah yang mempunyai isyarat rangkaian telefon yang lemah atau tiada internet langsung, amil mempunyai dua kaedah operasi:
+            Jika kutipan dibuat di kawasan kariah tanpa capaian internet, amil ada 2 kaedah mudah:
           </p>
 
           <div className="space-y-3 text-xs">
             {/* Kaedah 1: Simpan Galeri */}
-            <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-1.5">
-              <div className="flex items-center gap-2 font-bold text-slate-800 text-xs">
-                <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-black">A</span>
-                <span>Kaedah 1: Ambil Gambar ke Galeri Telefon (Paling Selamat)</span>
-              </div>
-              <p className="text-[11px] text-slate-600 leading-relaxed pl-7">
-                Amil boleh mengambil gambar resit fizikal menggunakan kamera telefon biasa dan menyimpannya di dalam galeri telefon terlebih dahulu. Apabila kembali mendapat liputan internet, buka aplikasi dan gunakan tab <strong>&ldquo;Dari Galeri&rdquo;</strong> untuk melaraskan dan memproses imbasan OCR.
+            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70">
+              <p className="font-bold text-slate-800 flex items-center gap-2 mb-1">
+                <span className="bg-slate-200 px-2 py-0.5 rounded text-[10px]">A</span> Simpan ke Galeri Telefon
+              </p>
+              <p className="text-[11px] text-slate-600 pl-8">
+                Guna kamera biasa telefon untuk mengambil gambar resit. Setelah mendapat capaian internet kelak, buka sistem dan muat naik dari tab <strong>&ldquo;Dari Galeri&rdquo;</strong>.
               </p>
             </div>
 
             {/* Kaedah 2: Pengimbas Luar Talian Auto-Sync */}
-            <div className="p-4 rounded-2xl border border-sky-200 bg-sky-50/50 space-y-1.5">
-              <div className="flex items-center gap-2 font-bold text-sky-950 text-xs">
-                <span className="w-5 h-5 rounded-full bg-sky-200 text-sky-800 flex items-center justify-center text-[10px] font-black">B</span>
-                <span>Kaedah 2: Pengimbas Luar Talian &amp; Auto-Sync (Eksperimental / Beta)</span>
-              </div>
-              <p className="text-[11px] text-slate-600 leading-relaxed pl-7">
-                Amil boleh terus membuka kamera pengimbas di dalam aplikasi. Sekiranya tiada internet dikesan, amil menyemak gambar dan mengesahkan nombor resit/muzakki secara manual. Data resit akan disimpan sementara di dalam memori peranti, dan sistem akan <strong>menyelaraskan secara automatik (*auto-sync*)</strong> rekod tersebut ke pangkalan data sebaik sahaja sambungan internet pulih.
+            <div className="p-3.5 rounded-2xl border border-sky-200 bg-sky-50/50">
+              <p className="font-bold text-sky-950 flex items-center gap-2 mb-1">
+                <span className="bg-sky-200 text-sky-800 px-2 py-0.5 rounded text-[10px]">B</span> Pengimbas Auto-Sync (Beta)
+              </p>
+              <p className="text-[11px] text-slate-600 pl-8">
+                Terus guna pengimbas sistem tanpa internet. Data resit akan disimpan dalam peranti (Auto-Sync) dan dihantar ke pelayan apabila internet bersambung semula.
               </p>
             </div>
           </div>
