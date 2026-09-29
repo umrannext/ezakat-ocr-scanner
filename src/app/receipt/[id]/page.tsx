@@ -2,7 +2,6 @@ import prisma from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import { Printer, CheckCircle2, Download } from 'lucide-react';
 import Link from 'next/link';
-import QRDisplay from '@/components/QRDisplay';
 import { headers } from 'next/headers';
 
 export default async function ReceiptPage(props: { params: Promise<{ id: string }> }) {
@@ -129,15 +128,8 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
               </div>
             </div>
           )}
-
-          <div className="p-6 flex flex-col items-center justify-center border-t border-dashed border-slate-300">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Imbas untuk versi E-Resit</span>
-              <div className="p-2 bg-white rounded-lg border border-slate-200">
-                <QRDisplay url={`https://ezakat-ocr-scanner-v2.umrannext.workers.dev/receipt/${receipt.id}`} />
-              </div>
-            </div>
-            
-            <div className="p-6 relative bg-slate-800 text-white rounded-b-2xl print:bg-white print:text-black print:border-t-2 print:border-slate-800 print:rounded-none">
+          
+          <div className="p-6 relative bg-slate-800 text-white rounded-b-2xl print:bg-white print:text-black print:border-t-2 print:border-slate-800 print:rounded-none">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-slate-300 print:text-slate-500 uppercase tracking-widest">Jumlah Bayaran</span>
                 <span className="text-3xl font-black">${receipt.totalAmount.toFixed(2)}</span>

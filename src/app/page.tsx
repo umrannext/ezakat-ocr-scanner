@@ -45,7 +45,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
       const isNotAdmin = user.role !== 'ADMIN';
 
       // Jalankan query secara serentak untuk kepantasan maksimum
-      const [fetchedRecentReceipts, stats, adminGroupedReceipts, amilList] = await Promise.all([
+      const [fetchedRecentReceipts, stats, adminGroupedReceipts, riceTypesList] = await Promise.all([
         prisma.receipt.findMany({
           where: isNotAdmin ? { amilId: user.id } : {},
           orderBy: { createdAt: 'desc' },
@@ -65,50 +65,42 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
           _count: { id: true }
         }),
         !isNotAdmin ? prisma.receipt.groupBy({
-          by: ['amilId', 'zakatType'],
-          where: {
-            OR: [
-              { riceType: { activeYear: currentYear } }, 
-              { AND: [{ zakatType: 'HARTA' }] }
-            ]
-          },
+          by: ['zakatType', 'riceTypeId'],
           _sum: { totalAmount: true },
           _count: { id: true }
         }) : Promise.resolve([]),
-        !isNotAdmin ? prisma.user.findMany({
-          select: {
-            id: true,
-            mosque: {
-              select: { zone: { select: { name: true } } }
-            }
-          }
-        }) : Promise.resolve([])
+        !isNotAdmin ? prisma.riceType.findMany() : Promise.resolve([])
       ]);
       
       recentReceipts = fetchedRecentReceipts;
       
       if (!isNotAdmin) {
-        const zoneMap = new Map();
-        const amilZoneMap = new Map(amilList.map(a => [a.id, a.mosque?.zone?.name || 'Lain-lain']));
+        adminData = {
+          wangi: { amount: 0, count: 0 },
+          siam: { amount: 0, count: 0 },
+          harta: { amount: 0, count: 0 }
+        } as any;
+        
+        const riceMap = new Map(riceTypesList.map(r => [r.id, r.name.toLowerCase()]));
 
         adminGroupedReceipts.forEach((r: any) => {
           const sumAmount = r._sum.totalAmount || 0;
           const countId = r._count.id || 0;
           
           if (r.zakatType === 'HARTA') {
-            adminData.totalHarta += sumAmount;
-            adminData.countHarta += countId;
+            adminData.harta.amount += sumAmount;
+            adminData.harta.count += countId;
           } else {
-            adminData.totalFitrah += sumAmount;
-            adminData.countFitrah += countId;
-            const zoneName = amilZoneMap.get(r.amilId) || 'Lain-lain';
-            zoneMap.set(zoneName, (zoneMap.get(zoneName) || 0) + sumAmount);
+            const riceName = riceMap.get(r.riceTypeId) || '';
+            if (riceName.includes('wangi')) {
+              adminData.wangi.amount += sumAmount;
+              adminData.wangi.count += countId;
+            } else {
+              adminData.siam.amount += sumAmount;
+              adminData.siam.count += countId;
+            }
           }
         });
-        
-        adminData.zoneStats = Array.from(zoneMap.entries())
-          .map(([name, amount]) => ({ name, amount }))
-          .sort((a, b) => b.amount - a.amount);
       }
 
       receipts = recentReceipts;
@@ -179,7 +171,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
         </header>
 
         {user.role === 'ADMIN' ? (
-          <AdminDashboard data={adminData} currentYear={currentYear} />
+          <AdminDashboard data={adminData} />
         ) : (
           <div className="bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-400 rounded-[2rem] p-7 text-white shadow-[0_20px_40px_-15px_rgba(20,184,166,0.5)] mb-10 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl transform translate-x-20 -translate-y-10 group-hover:scale-110 transition-transform duration-700"></div>
