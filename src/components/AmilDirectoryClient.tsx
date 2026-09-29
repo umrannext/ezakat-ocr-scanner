@@ -243,6 +243,22 @@ export default function AmilDirectoryClient({ initialAmils = [] }: { initialAmil
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Butang Navigasi ke Direktori Staf */}
+        <button
+          onClick={() => window.location.href = '/staff'}
+          className="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-2xl p-3 flex items-center justify-between transition-all active:scale-95 shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
+              <Users size={20} />
+            </div>
+            <div className="text-left">
+              <h3 className="font-bold text-sm">Direktori Staf JUZWAB</h3>
+              <p className="text-[10px] font-medium opacity-80">Urus profil staf arkib dan pentadbiran</p>
+            </div>
+          </div>
+          <span className="text-blue-500 font-bold text-xs bg-white px-2 py-1 rounded-lg shadow-xs">Buka &rarr;</span>
+        </button>
         {/* PANEL KHAS ADMIN: BULK ASSIGN & TEMPLATE EXCEL */}
         <div className="bg-gradient-to-r from-teal-800 to-emerald-800 rounded-3xl p-4.5 text-white shadow-md relative overflow-hidden">
           <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
