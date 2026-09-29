@@ -144,120 +144,42 @@ export async function POST(req: Request) {
     const safeTotalAmount = isNaN(totalAmount) ? 0 : totalAmount;
     const safeDependents = isNaN(dependents) ? 0 : dependents;
 
-    // 5. Jana senarai nombor resit — pembayar utama + running number untuk tanggungan
-    // Contoh: DW 077703 → tanggungan 1: DW 077704, tanggungan 2: DW 077705
-    const receiptNumbers: string[] = [receiptNumber];
-    
-    if (data.zakatType !== 'HARTA' && safeDependents > 0) {
-      // Ekstrak kod (DW/CS) dan nombor digit dari receiptNumber
-      const prefixMatch = receiptNumber.match(/^([A-Z]{2})\s*/i);
-      const prefix = prefixMatch ? prefixMatch[1].toUpperCase() + ' ' : '';
-      const digits = receiptNumber.replace(/^[A-Z]{2}\s*/i, '').replace(/\D/g, '');
-      const baseNum = parseInt(digits, 10);
-      
-      if (!isNaN(baseNum)) {
-        for (let i = 1; i <= safeDependents; i++) {
-          const nextNum = String(baseNum + i).padStart(digits.length || 6, '0');
-          receiptNumbers.push(`${prefix}${nextNum}`);
-        }
-      }
-    }
-
-    const foundStatusMap: Record<string, boolean> = data.foundStatusMap || {};
-
-    // 6. Semak semua nombor resit untuk elak pendua atau laksana pemulihan (reconciliation)
-    const existingReceipts = await prisma.receipt.findMany({
-      where: { receiptNumber: { in: receiptNumbers } }
-    });
-    
-    const reconciledList: string[] = [];
-    const trulyDupeList: string[] = [];
-
-    if (existingReceipts.length > 0) {
-      for (const exist of existingReceipts) {
-        // Jika rekod sebelum ini berstatus TIDAK DIJUMPAI (false), dan sekarang staf menjumpainya:
-        if (exist.isPhysicalFound === false) {
-          await prisma.receipt.update({
-            where: { id: exist.id },
-            data: {
-              isPhysicalFound: true,
-              imageUrl: safeImageUrl || exist.imageUrl,
-              amilId: user.id, // Staf yang mengesahkan dijumpai
-              paymentDate: isNaN(paymentDate.getTime()) ? exist.paymentDate : paymentDate,
-              ...(payerName && !data.isQuickMode && { payerName }),
-              ...(payerIcNumber && !data.isQuickMode && { payerIcNumber })
-            }
-          });
-          reconciledList.push(exist.receiptNumber);
-        } else {
-          trulyDupeList.push(exist.receiptNumber);
-        }
-      }
-
-      if (trulyDupeList.length > 0) {
-        return NextResponse.json({ 
-          success: false, 
-          error: `Nombor resit berikut telah pun wujud dan disahkan 'Dijumpai' sebelum ini: ${trulyDupeList.join(', ')}`
-        }, { status: 400 });
-      }
-    }
-
-    // Tapis keluar nombor yang telah dikemaskini agar tidak dimasukkan semula
-    const newReceiptNumbers = receiptNumbers.filter(
-      rNum => !existingReceipts.some(e => e.receiptNumber === rNum)
-    );
-
-    // 7. Cipta rekod baharu yang belum wujud dalam pangkalan data
-    const pricePerPax = data.zakatType !== 'HARTA' && (dependents + 1) > 0 
-      ? safeTotalAmount / (dependents + 1) 
-      : safeTotalAmount;
-
-    if (newReceiptNumbers.length > 0) {
-      const receiptDataList = newReceiptNumbers.map((rNum) => {
-        const isMain = rNum === receiptNumber;
-        const depIdx = receiptNumbers.indexOf(rNum);
-        // Tentukan status dijumpai: Resit utama selalu true, tanggungan ikut foundStatusMap
-        const isFound = isMain ? true : (foundStatusMap[rNum] !== undefined ? Boolean(foundStatusMap[rNum]) : true);
-
-        return {
-          receiptNumber: rNum,
-          payerName: isMain ? payerName : `Tanggungan ${depIdx} - ${payerName || 'Pembayar Zakat'}`,
-          zakatType: data.zakatType || 'FITRAH',
-          riceTypeId: validRiceTypeId,
-          amilId: user.id,
-          payerIcNumber: isMain ? payerIcNumber : null,
-          isVerified: Boolean(data.isVerified && !data.isQuickMode),
-          isWakalah: Boolean(data.isWakalah),
-          isSedekah: false,
-          paidAmount: parseFloat(pricePerPax.toFixed(2)),
-          sedekahAmount: 0,
-          imageUrl: isMain ? safeImageUrl : null,
-          dependents: isMain ? safeDependents : 0,
-          paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
-          totalAmount: parseFloat(pricePerPax.toFixed(2)),
-          isPhysicalFound: isFound
-        };
-      });
-
-      // Gunakan createMany untuk kecekapan — satu request sahaja ke DB
-      await prisma.receipt.createMany({ data: receiptDataList });
-    }
-
-    // Ambil rekod utama (pembayar) untuk dikembalikan ke frontend
-    const createdReceipt = await prisma.receipt.findUnique({
+    // 5. Semak jika resit sudah wujud
+    const existingReceipt = await prisma.receipt.findUnique({
       where: { receiptNumber: receiptNumber }
+    });
+
+    if (existingReceipt) {
+      return NextResponse.json({ 
+        success: false, 
+        error: `Resit ${receiptNumber} telah pun wujud di dalam sistem arkib.`
+      }, { status: 400 });
+    }
+
+    // 6. Cipta rekod resit tunggal
+    const createdReceipt = await prisma.receipt.create({
+      data: {
+        receiptNumber: receiptNumber,
+        payerName: payerName,
+        zakatType: data.zakatType || 'FITRAH',
+        riceTypeId: validRiceTypeId,
+        amilId: user.id,
+        payerIcNumber: payerIcNumber,
+        isVerified: Boolean(data.isVerified),
+        isWakalah: Boolean(data.isWakalah),
+        isSedekah: false,
+        paidAmount: parseFloat(safeTotalAmount.toFixed(2)),
+        sedekahAmount: 0,
+        imageUrl: safeImageUrl,
+        dependents: safeDependents,
+        paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
+        totalAmount: parseFloat(safeTotalAmount.toFixed(2))
+      }
     });
 
     return NextResponse.json({ 
       success: true, 
-      data: createdReceipt,
-      totalCreated: newReceiptNumbers.length,
-      reconciledCount: reconciledList.length,
-      reconciledReceipts: reconciledList,
-      receiptNumbers,
-      message: reconciledList.length > 0
-        ? `Resit ${reconciledList.join(', ')} yang sebelum ini berstatus 'Tidak Dijumpai' telah berjaya dikemaskini kepada 'Dijumpai'!`
-        : undefined
+      data: createdReceipt
     });
   } catch (error: any) {
     console.error("Ralat simpan resit:", error);

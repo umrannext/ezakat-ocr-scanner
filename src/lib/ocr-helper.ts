@@ -71,21 +71,21 @@ export function convertArabicIndicToRomanDigits(text: string): string {
 export function extractStandardizedPaymentDate(text: string): string {
   const normalized = convertArabicIndicToRomanDigits(text);
 
-  // 1. Format DD/MM/YYYY atau DD-MM-YYYY atau DD.MM.YYYY
-  const dmyMatch = normalized.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/);
+  // 1. Format DD/MM/YYYY atau DD-MM-YYYY atau DD.MM.YYYY atau DD MM YYYY
+  const dmyMatch = normalized.match(/\b(\d{1,2})[\/\-\.\s]+(\d{1,2})[\/\-\.\s]+(\d{2,4})\b/);
   if (dmyMatch) {
     const d = parseInt(dmyMatch[1], 10);
     const m = parseInt(dmyMatch[2], 10);
     let y = parseInt(dmyMatch[3], 10);
     if (y < 100) y = 2000 + y;
 
-    if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 2020 && y <= 2040) {
+    if (d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 2000 && y <= 2040) {
       return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     }
   }
 
   // 2. Format YYYY-MM-DD
-  const ymdMatch = normalized.match(/\b(20\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})\b/);
+  const ymdMatch = normalized.match(/\b(20\d{2})[\/\-\.\s]+(\d{1,2})[\/\-\.\s]+(\d{1,2})\b/);
   if (ymdMatch) {
     const y = ymdMatch[1];
     const m = String(parseInt(ymdMatch[2], 10)).padStart(2, '0');
@@ -382,9 +382,14 @@ export function extractReceiptCodeAndNumber(
   const reasons: string[] = [];
 
   // 1. Kenal pasti kata kunci Resit Zakat Harta (Borang A)
-  const hartaKeywordsRegex = /(?:120|borang\s*a|بور[ان]?غ\s*a|penggal\s*77|فغكل\s*77|peraturan\s*10|فراتوران\s*10|resit\s*rasmi|ريسية\s*رسمي|akta\s*majlis|اکتا\s*مجليس|mahkamah|محكمه|qadhi|قاضي|kad\s*pintar|كاد\s*ڤينتر|علامة|باپق|چيک|نمبور\s*چيک|diterima\s*drpd|diterima\s*daripada|دتريما\s*درفد)/i;
+  const hartaKeywordsRegex = /(?:borang\s*a|بور[ان]?غ\s*a|resit\s*rasmi\s*zakat|zakat\s*harta|wang\s*simpanan|emas\s*&\s*perak|perniagaan|چيک|nombor\s*cek|no\s*cek|علامة|باپق)/i;
   const hasHartaKeywords = hartaKeywordsRegex.test(normalizedText);
-  if (hasHartaKeywords) reasons.push('Mengandungi teks rasmi Borang A / Akta Majlis Ugama');
+  if (hasHartaKeywords) reasons.push('Mengandungi teks khusus Borang A / Zakat Harta');
+
+  // 1b. Kenal pasti kata kunci Resit Zakat Fitrah (Borang B / Borang J)
+  const fitrahKeywordsRegex = /(?:borang\s*[bj]|بور[ان]?غ\s*[bj]|resit\s*rasmi\s*fitrah|زكاة\s*دان\s*فطره|زكاة\s*فطره|zakat\s*dan\s*fitrah)/i;
+  const hasFitrahKeywords = fitrahKeywordsRegex.test(normalizedText);
+  if (hasFitrahKeywords) reasons.push('Mengandungi teks khusus Borang B/J (Fitrah)');
 
   // 2. Kenal pasti kod Zakat Fitrah (DW / CS)
   const hasDWorCSInText = /\b(DW|CS|EW)\b/.test(upper) || /(?:DW|CS|EW)\s*[:.-]?\s*\d/i.test(upper);
@@ -398,27 +403,28 @@ export function extractReceiptCodeAndNumber(
   } else if (targetTypeHint === 'FITRAH') {
     isHarta = false;
   } else {
-    // Pengesanan automatik berdasarkan ciri-ciri fizikal resit
+    // Pengesanan automatik berdasarkan ciri-ciri fizikal resit dan kata kunci
     if (paperColor?.orientation === 'LANDSCAPE') {
       isHarta = true;
       reasons.push('Saiz resit memanjang (Landscape)');
-    }
-    if (paperColor?.hasRedTopRightNumber) {
+    } else if (hasFitrahKeywords) {
+      isHarta = false;
+    } else if (hasHartaKeywords) {
+      isHarta = true;
+    } else if (paperColor?.hasRedTopRightNumber) {
       isHarta = true;
       reasons.push('Nombor siri merah dikesan di sudut atas kanan');
-    }
-    if (paperColor?.color === 'WHITE' && !hasDWorCSInText) {
+    } else if (paperColor?.color === 'WHITE' && !hasDWorCSInText && !hasFitrahKeywords) {
       isHarta = true;
-      reasons.push('Kertas putih (bukan slip hijau/kuning fitrah)');
-    }
-    if (hasHartaKeywords && !isGreenOrYellowPaper && !hasDWorCSInText) {
-      isHarta = true;
+      reasons.push('Kertas putih tanpa ciri-ciri Fitrah');
     }
   }
 
-  // Jika mengandungi kod DW atau CS secara jelas pada kertas berwarna, ia adalah Fitrah
-  if ((hasDWorCSInText || isGreenOrYellowPaper) && targetTypeHint !== 'HARTA') {
-    isHarta = false;
+  // Jika mengandungi kod DW atau CS secara jelas, pastikan ia Fitrah
+  if (hasDWorCSInText || (isGreenOrYellowPaper && !hasHartaKeywords)) {
+    if (targetTypeHint !== 'HARTA') {
+      isHarta = false;
+    }
   }
 
   // =========================================================================
@@ -573,7 +579,7 @@ export function extractZakatHartaDetails(text: string): {
   let bankName = '';
   let chequeNumber = '';
 
-  // 1. Ekstrak No Kad Pintar (Format Brunei: XX-XXXXXX atau 8 digit)
+  // 1. Ekstrak No Kad Pintar
   const icMatch = normalized.match(/\b(\d{2}[-\s]?\d{6})\b/);
   if (icMatch) {
     payerIcNumber = icMatch[1].replace(/\s+/g, '-');
@@ -582,7 +588,7 @@ export function extractZakatHartaDetails(text: string): {
     }
   }
 
-  // 2. Ekstrak Nama Pembayar jika ada baris selepas 'نام :' atau 'diterima'
+  // 2. Ekstrak Nama
   const nameLineMatch = text.match(/(?:نام|nama|diterima\s*drpd|diterima\s*daripada)[\s\:\._]*([A-Za-z\s@]{3,40})/i);
   if (nameLineMatch && nameLineMatch[1]) {
     const raw = nameLineMatch[1].trim();
@@ -591,29 +597,35 @@ export function extractZakatHartaDetails(text: string): {
     }
   }
 
-  // 3. Ekstrak Jumlah Bayaran ($ dan sen)
-  const amountMatch = normalized.match(/(?:\$|B\$|banyak|jumlah)[\s\:\._]*([0-9]+(?:[\.,][0-9]{2})?)/i);
+  // 3. Ekstrak Jumlah Bayaran ($ dan sen). Column layout usually puts them side by side or separated by space/pipe
+  // For example: "231 73" or "231 | 73"
+  const amountMatch = normalized.match(/(?:\$|B\$|banyak|jumlah)[\s\:\._]*([0-9]+)[\s\|\.,]*([0-9]{2})?/i);
   if (amountMatch && amountMatch[1]) {
-    const cleanAmt = parseFloat(amountMatch[1].replace(',', '.'));
-    if (!isNaN(cleanAmt) && cleanAmt > 0) {
-      amount = cleanAmt.toFixed(2);
+    const dollars = amountMatch[1];
+    const cents = amountMatch[2] || '00';
+    amount = `${dollars}.${cents}`;
+  } else {
+    // Try catching standalone numbers in the left column region if possible, e.g. "231 73"
+    const genericAmountMatch = normalized.match(/\b([0-9]+)\s+([0-9]{2})\b/);
+    if (genericAmountMatch) {
+       amount = `${genericAmountMatch[1]}.${genericAmountMatch[2]}`;
     }
   }
 
-  // 4. Ekstrak Kategori Zakat Harta jika dinyatakan
-  if (/emas|perak/i.test(text)) {
+  // 4. Ekstrak Kategori Zakat Harta (Rumi or Jawi)
+  if (/emas|perak|امس|ڤيرق/i.test(text)) {
     zakatSubtype = 'Emas & Perak';
-  } else if (/perniagaan|kedai|syarikat/i.test(text)) {
+  } else if (/perniagaan|kedai|syarikat|ڤرنياݢاءن/i.test(text)) {
     zakatSubtype = 'Perniagaan';
-  } else if (/pendapatan|gaji/i.test(text)) {
+  } else if (/pendapatan|gaji|ڤنداڤتن/i.test(text)) {
     zakatSubtype = 'Pendapatan';
-  } else if (/saham|pelaburan/i.test(text)) {
+  } else if (/saham|pelaburan|سهم/i.test(text)) {
     zakatSubtype = 'Saham & Pelaburan';
-  } else if (/simpanan|tabung/i.test(text)) {
+  } else if (/simpanan|tabung|سيمڤنن|هـرتـا|harta/i.test(text)) {
     zakatSubtype = 'Wang Simpanan';
   }
 
-  // 5. Ekstrak Bank & Cek jika ada
+  // 5. Ekstrak Bank & Cek
   const bankMatch = text.match(/(?:bank|بڠك)[\s\:\._]*([A-Za-z\s]{3,20})/i);
   if (bankMatch && bankMatch[1]) {
     bankName = bankMatch[1].trim();
@@ -639,21 +651,34 @@ export function extractZakatHartaDetails(text: string): {
  * Ekstrak Jumlah Muzakki (Roman, Arab-Indic, atau Perkataan Jawi)
  */
 export function extractMuzakkiInfo(text: string): { totalMuzakki: number; dependents: number; source: string } {
-  // 1. Periksa nombor Arab-Indic berbilang digit atau satu digit selepas 'جمله مزكي'
-  const arabicNumMatch = text.match(/(?:جمله مزكي|مزكي|muzakki)[\s\:\._]*([٠-٩۰-۹]+)/);
-  if (arabicNumMatch && arabicNumMatch[1]) {
-    const total = parseArabicIndicDigits(arabicNumMatch[1]);
-    if (total > 0 && total <= 50) {
+  const normalized = convertArabicIndicToRomanDigits(text);
+
+  // 1. Periksa keyword tanggungan
+  const tanggunganMatch = normalized.match(/(?:tanggungan|تڠݢوڠن|تڠڬوڠن)[\s\:\._]*(\d{1,2})/i);
+  if (tanggunganMatch && tanggunganMatch[1]) {
+    const dep = parseInt(tanggunganMatch[1], 10);
+    if (!isNaN(dep) && dep >= 0 && dep <= 50) {
       return { 
-        totalMuzakki: total, 
-        dependents: Math.max(0, total - 1), 
-        source: `Nombor Jawi/Arab (${arabicNumMatch[1]} ➔ ${total} Orang)` 
+        totalMuzakki: dep + 1, 
+        dependents: dep, 
+        source: `Tanggungan (${dep} Orang)` 
       };
     }
   }
 
-  // 2. Periksa nombor Roman selepas perkataan 'جمله مزكي' atau 'muzakki'
-  const muzakkiRomanMatch = text.match(/(?:جمله مزكي|مزكي|muzakki)[\s\:\._]*(\d{1,2})/i);
+  // 2. Periksa perkataan Jawi/Melayu (cth: 'دتريما ساتو فطره' / 'دتريما دوا فطره' / 'دوا')
+  for (const [word, val] of Object.entries(JAWI_WORD_MAP)) {
+    if (text.includes(word)) {
+      return { 
+        totalMuzakki: val, 
+        dependents: Math.max(0, val - 1), 
+        source: `Perkataan Jawi ('${word}' ➔ ${val} Orang)` 
+      };
+    }
+  }
+
+  // 3. Periksa nombor selepas perkataan 'جمله مزكي' atau 'muzakki'
+  const muzakkiRomanMatch = normalized.match(/(?:جمله مزكي|مزكي|muzakki|jumlah)[\s\:\._]*(\d{1,2})/i);
   if (muzakkiRomanMatch && muzakkiRomanMatch[1]) {
     const num = parseInt(muzakkiRomanMatch[1], 10);
     if (!isNaN(num) && num >= 1 && num <= 50) {
@@ -665,26 +690,15 @@ export function extractMuzakkiInfo(text: string): { totalMuzakki: number; depend
     }
   }
 
-  // 3. Periksa perkataan Jawi/Melayu (cth: 'دتريما ساتو فطره' / 'دتريما دوا فطره' / 'دوا')
-  for (const [word, val] of Object.entries(JAWI_WORD_MAP)) {
-    if (text.includes(word)) {
-      return { 
-        totalMuzakki: val, 
-        dependents: Math.max(0, val - 1), 
-        source: `Perkataan Jawi ('${word}' ➔ ${val} Orang)` 
-      };
-    }
-  }
-
-  // 4. Semak mana-mana digit Arab-Indic yang wujud di baris bawah
-  const genericArabicMatch = text.match(/([١-٩][٠-٩]?)/);
-  if (genericArabicMatch && genericArabicMatch[1]) {
-    const total = parseArabicIndicDigits(genericArabicMatch[1]);
+  // 4. Semak mana-mana digit Arab-Indic / Roman tunggal yang wujud di kawasan bawah (baris-baris terakhir OCR)
+  const genericMatch = normalized.match(/(?:\b|:\s*)([0-9]{1,2})\s*$/m);
+  if (genericMatch && genericMatch[1]) {
+    const total = parseInt(genericMatch[1], 10);
     if (total > 0 && total <= 30) {
       return { 
         totalMuzakki: total, 
         dependents: Math.max(0, total - 1), 
-        source: `Nombor Arab (${genericArabicMatch[1]} ➔ ${total} Orang)` 
+        source: `Nombor Tunggal (${genericMatch[1]} ➔ ${total} Orang)` 
       };
     }
   }

@@ -67,8 +67,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         payerName: data.payerName,
         receiptNumber: data.receiptNumber,
         dependents: data.dependents,
-        totalAmount: data.totalAmount,
-        ...(data.isPhysicalFound !== undefined && { isPhysicalFound: Boolean(data.isPhysicalFound) })
+        totalAmount: data.totalAmount
       },
       include: { riceType: true }
     });
