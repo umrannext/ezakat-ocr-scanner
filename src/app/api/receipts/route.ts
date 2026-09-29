@@ -158,11 +158,13 @@ export async function POST(req: Request) {
 
     // 6. Cipta rekod resit tunggal
     const createdReceipt = await prisma.receipt.create({
-      data: {
+        data: {
         receiptNumber: receiptNumber,
         payerName: payerName,
         zakatType: data.zakatType || 'FITRAH',
         hartaSubtype: data.hartaSubtype || null,
+        groupId: data.groupId || null,
+        remarks: data.remarks || null,
         riceTypeId: validRiceTypeId,
         amilId: user.id,
         payerIcNumber: payerIcNumber,

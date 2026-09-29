@@ -4,18 +4,36 @@ import { Printer, CheckCircle2, Download } from 'lucide-react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 
-export default async function ReceiptPage(props: { params: Promise<{ id: string }> }) {
+export default async function ReceiptPage(props: { params: Promise<{ id: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await props.params;
-  const receipt = await prisma.receipt.findUnique({
-    where: { id: params.id },
-    include: {
-      amil: { select: { name: true, mosque: { include: { zone: true } } } },
-      riceType: true,
-    }
-  });
+  const searchParams = await props.searchParams;
+  const isGroup = searchParams?.group === 'true';
 
-  if (!receipt) {
-    notFound();
+  let receipt;
+  let groupReceipts: any[] = [];
+  
+  if (isGroup) {
+    groupReceipts = await prisma.receipt.findMany({
+      where: { groupId: params.id },
+      include: {
+        amil: { select: { name: true, mosque: { include: { zone: true } } } },
+        riceType: true,
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+    
+    if (groupReceipts.length === 0) notFound();
+    receipt = groupReceipts[0];
+  } else {
+    receipt = await prisma.receipt.findUnique({
+      where: { id: params.id },
+      include: {
+        amil: { select: { name: true, mosque: { include: { zone: true } } } },
+        riceType: true,
+      }
+    });
+    if (!receipt) notFound();
+    groupReceipts = [receipt];
   }
 
   const isHarta = receipt.zakatType === 'HARTA';
@@ -114,17 +132,34 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
           </div>
           
           {/* SALINAN ASAL RESIT DIARKIB */}
-          {receipt.imageUrl && (
+          {(groupReceipts.some(r => r.imageUrl) || groupReceipts.some(r => r.remarks)) && (
             <div className="p-5 border-t border-dashed border-slate-300 bg-slate-50/50 text-center">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2.5">
                 Salinan Imej Resit Fizikal Diarkib
               </span>
-              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
-                <img 
-                  src={receipt.imageUrl} 
-                  alt={`Resit Asal ${receipt.receiptNumber}`} 
-                  className="max-h-56 w-auto object-contain mx-auto"
-                />
+              <div className="space-y-4">
+                {groupReceipts.map((r, idx) => (
+                  <div key={r.id} className="relative">
+                    {groupReceipts.length > 1 && (
+                      <div className="text-[9px] font-black text-slate-400 mb-1">
+                        Resit Tanggungan {idx + 1} ({r.receiptNumber})
+                      </div>
+                    )}
+                    {r.imageUrl ? (
+                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
+                        <img 
+                          src={r.imageUrl} 
+                          alt={`Resit Asal ${r.receiptNumber}`} 
+                          className="max-h-56 w-auto object-contain mx-auto"
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-100 p-4 text-slate-500 text-xs font-bold">
+                        {r.remarks || "Tiada salinan imej diarkibkan."}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

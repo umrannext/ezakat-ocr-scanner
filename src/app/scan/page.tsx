@@ -26,6 +26,11 @@ export default function ScanPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMsg, setProcessingMsg] = useState('Memproses resit...');
 
+  const [isMultiScan, setIsMultiScan] = useState(false);
+  const [multiCurrent, setMultiCurrent] = useState(0);
+  const [multiTotal, setMultiTotal] = useState(0);
+  const [showCancelOptions, setShowCancelOptions] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     // Semak sekiranya ada parameter jenis zakat atau mod arkib daripada halaman sebelum
@@ -38,8 +43,14 @@ export default function ScanPage() {
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const typeParam = urlParams?.get('type') as 'FITRAH' | 'HARTA' | null;
     const quickParam = urlParams?.get('quick');
+    const multiParam = urlParams?.get('multi');
 
-    if (quickParam === 'true' || quickParam === '1') {
+    if (multiParam === 'true') {
+      setIsMultiScan(true);
+      setShowTypeModal(false);
+      setMultiCurrent(parseInt(sessionStorage.getItem('multiCurrent') || '0'));
+      setMultiTotal(parseInt(sessionStorage.getItem('multiTotal') || '0'));
+    } else if (quickParam === 'true' || quickParam === '1') {
       setIsQuickMode(true);
       setReceiptType('FITRAH');
       setCropOrientation('SQUARE');
@@ -98,7 +109,7 @@ export default function ScanPage() {
         sessionStorage.setItem('scannedImage', finalBase64);
         sessionStorage.setItem('scanReceiptType', receiptType);
         sessionStorage.setItem('scanQuickMode', isQuickMode ? 'true' : 'false');
-        router.push('/review');
+        router.push(isMultiScan ? '/review?multi=true' : '/review');
       };
       reader.readAsDataURL(compressed);
     } catch (err) {
@@ -106,9 +117,9 @@ export default function ScanPage() {
       sessionStorage.setItem('scannedImage', imageSrc);
       sessionStorage.setItem('scanReceiptType', receiptType);
       sessionStorage.setItem('scanQuickMode', isQuickMode ? 'true' : 'false');
-      router.push('/review');
+      router.push(isMultiScan ? '/review?multi=true' : '/review');
     }
-  }, [webcamRef, router, receiptType, isQuickMode]);
+  }, [webcamRef, router, receiptType, isQuickMode, isMultiScan]);
 
   // Tukar Kamera Depan / Belakang
   const toggleCamera = () => {
@@ -261,7 +272,7 @@ export default function ScanPage() {
         sessionStorage.setItem('scannedImage', finalBase64);
         sessionStorage.setItem('scanReceiptType', receiptType);
         sessionStorage.setItem('scanQuickMode', isQuickMode ? 'true' : 'false');
-        router.push('/review');
+        router.push(isMultiScan ? '/review?multi=true' : '/review');
       };
       reader.readAsDataURL(compressed);
     } catch (err) {
@@ -292,6 +303,90 @@ export default function ScanPage() {
           </div>
           <h3 className="text-white font-bold text-lg">{processingMsg}</h3>
           <p className="text-slate-400 text-xs mt-1.5">Sila tunggu sebentar...</p>
+        </div>
+      )}
+
+      {/* MULTI SCAN OVERLAY (TANGGUNGAN) */}
+      {isMultiScan && !adjustImage && (
+        <div className="absolute top-0 left-0 w-full z-40 p-4 bg-gradient-to-b from-black/80 to-transparent pt-12 flex justify-between items-start">
+          <div className="bg-teal-900/80 backdrop-blur-sm border border-teal-500/30 px-4 py-2 rounded-2xl shadow-lg">
+            <p className="text-[10px] text-teal-300 font-bold uppercase tracking-widest mb-0.5">Sesi Tanggungan</p>
+            <h2 className="text-white font-black text-lg">Resit {multiCurrent} / {multiTotal}</h2>
+          </div>
+          <button 
+            onClick={() => setShowCancelOptions(true)}
+            className="bg-red-500/20 text-red-100 hover:bg-red-500/40 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+          >
+            Batal
+          </button>
+        </div>
+      )}
+
+      {/* MULTI SCAN CANCEL DIALOG */}
+      {showCancelOptions && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-5">
+          <div className="bg-slate-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-white/10">
+            <h3 className="text-lg font-black text-white mb-2">Pilihan Batal Imbasan</h3>
+            <p className="text-sm text-slate-400 mb-6">Sekiranya resit fizikal tidak dijumpai, anda boleh mengabaikan resit ini atau menamatkan sesi terus.</p>
+            
+            <div className="space-y-3">
+              <button onClick={() => {
+                setShowCancelOptions(false);
+              }} className="w-full py-3.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-xl transition-all shadow-md">
+                Teruskan Mengimbas
+              </button>
+              
+              <button onClick={async () => {
+                setShowCancelOptions(false);
+                setIsProcessing(true);
+                setProcessingMsg('Merekodkan status resit tidak dijumpai...');
+                
+                // Hantar resit kosong dengan remarks
+                const basePayloadStr = sessionStorage.getItem('multiBaseData');
+                if (basePayloadStr) {
+                  try {
+                    const payload = JSON.parse(basePayloadStr);
+                    payload.remarks = 'Resit fizikal tidak dijumpai';
+                    
+                    const res = await fetch('/api/receipts', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload)
+                    });
+                    
+                    const groupId = sessionStorage.getItem('multiGroupId');
+                    
+                    if (multiCurrent < multiTotal) {
+                      sessionStorage.setItem('multiCurrent', (multiCurrent + 1).toString());
+                      window.location.reload();
+                    } else {
+                      sessionStorage.removeItem('multiGroupId');
+                      sessionStorage.removeItem('multiTotal');
+                      sessionStorage.removeItem('multiCurrent');
+                      sessionStorage.removeItem('multiBaseData');
+                      router.push(`/receipt/${groupId}?group=true`);
+                    }
+                  } catch (e) {
+                    alert('Ralat semasa merekod.');
+                    setIsProcessing(false);
+                  }
+                }
+              }} className="w-full py-3.5 bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold rounded-xl hover:bg-amber-500/30 transition-all">
+                Tanda "Tidak Dijumpai" (Langgan)
+              </button>
+              
+              <button onClick={() => {
+                const groupId = sessionStorage.getItem('multiGroupId');
+                sessionStorage.removeItem('multiGroupId');
+                sessionStorage.removeItem('multiTotal');
+                sessionStorage.removeItem('multiCurrent');
+                sessionStorage.removeItem('multiBaseData');
+                router.push(`/receipt/${groupId}?group=true`);
+              }} className="w-full py-3.5 bg-slate-800 border border-slate-700 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-all mt-4">
+                Batal Sesi & Tamat
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

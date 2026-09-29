@@ -71,6 +71,9 @@ model Receipt {
   zakatType     String   @default("FITRAH") // "FITRAH" or "HARTA"
   hartaSubtype  String?  // e.g. "Wang Simpanan", "Perniagaan"
   
+  groupId       String?  // Untuk satukan beberapa resit fitrah (tanggungan) dalam 1 e-resit
+  remarks       String?  // Untuk nota "Resit tidak dijumpai", dll.
+  
   paidAmount    Float    @default(0)
   
   amilId        String

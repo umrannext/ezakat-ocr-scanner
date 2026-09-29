@@ -40,7 +40,9 @@ export default function ReviewPage() {
   const [reconciledMessage, setReconciledMessage] = useState<string | null>(null);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
   const [savedReceiptData, setSavedReceiptData] = useState<any>(null);
-
+  const [isMultiScan, setIsMultiScan] = useState(false);
+  const [multiCurrent, setMultiCurrent] = useState(0);
+  const [multiTotal, setMultiTotal] = useState(0);
   
   const [riceTypes, setRiceTypes] = useState<any[]>([
     { id: 'bf3a55f9-4fec-40b3-b690-3136f8b6b71d', code: 'B_SIAM_1447H', name: 'Beras Siam', price: 1.93, activeYear: '1447H' },
@@ -114,6 +116,14 @@ export default function ReviewPage() {
   }, []);
 
   useEffect(() => {
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const multiParam = urlParams?.get('multi');
+    if (multiParam === 'true') {
+      setIsMultiScan(true);
+      setMultiCurrent(parseInt(sessionStorage.getItem('multiCurrent') || '0'));
+      setMultiTotal(parseInt(sessionStorage.getItem('multiTotal') || '0'));
+    }
+
     const savedImage = sessionStorage.getItem('scannedImage');
     if (!savedImage) {
       router.push('/scan');
@@ -342,7 +352,7 @@ export default function ReviewPage() {
       const finalPayerName = formData.payerName?.trim() || 'Pembayar Zakat';
       const finalIcNumber = formData.icNumber || null;
 
-      const payload = {
+      const payload: any = {
         ...formData,
         payerName: finalPayerName,
         icNumber: finalIcNumber,
@@ -354,6 +364,14 @@ export default function ReviewPage() {
         imageUrl: (compressedThumb && compressedThumb.length < 150000) ? compressedThumb : null
       };
 
+      // Check Multi Scan Session
+      const existingGroupId = sessionStorage.getItem('multiGroupId');
+      if (existingGroupId) {
+        payload.groupId = existingGroupId;
+      } else if (formData.zakatType === 'FITRAH' && formData.dependents > 0) {
+        payload.groupId = Math.random().toString(36).substring(2, 10);
+      }
+
       const res = await fetch('/api/receipts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -364,6 +382,36 @@ export default function ReviewPage() {
 
       if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
+        
+        // Handle Multi Scan flow
+        if (payload.groupId) {
+          let currentIdx = parseInt(sessionStorage.getItem('multiCurrent') || '0');
+          let totalDep = parseInt(sessionStorage.getItem('multiTotal') || formData.dependents.toString());
+          
+          if (currentIdx === 0) {
+            sessionStorage.setItem('multiGroupId', payload.groupId);
+            sessionStorage.setItem('multiTotal', totalDep.toString());
+            sessionStorage.setItem('multiCurrent', '1');
+            const basePayload = { ...payload, receiptNumber: '', imageUrl: null };
+            sessionStorage.setItem('multiBaseData', JSON.stringify(basePayload));
+          } else {
+            currentIdx++;
+            sessionStorage.setItem('multiCurrent', currentIdx.toString());
+          }
+
+          if (currentIdx <= totalDep) {
+            router.push('/scan?multi=true');
+            return;
+          } else {
+            sessionStorage.removeItem('multiGroupId');
+            sessionStorage.removeItem('multiTotal');
+            sessionStorage.removeItem('multiCurrent');
+            sessionStorage.removeItem('multiBaseData');
+            router.push(`/receipt/${payload.groupId}?group=true`);
+            return;
+          }
+        }
+
         if (data.message) {
           setReconciledMessage(data.message);
         }
@@ -538,7 +586,7 @@ export default function ReviewPage() {
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className={isMultiScan ? "hidden" : "space-y-4"}>
           {/* TAB PILIHAN JENIS ZAKAT: FITRAH VS HARTA */}
           <div className="flex bg-slate-200/70 p-1 rounded-2xl border border-slate-300/60 shadow-inner">
             <button 
@@ -606,12 +654,13 @@ export default function ReviewPage() {
               className="w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
           </div>
+        </div>
 
-          {/* ========================================================= */}
-          {/* MEDAN A: KHAS UNTUK RESIT ZAKAT HARTA (BORANG A - PUTIH)   */}
-          {/* ========================================================= */}
-          {formData.zakatType === 'HARTA' ? (
-            <div className="space-y-4 pt-1">
+        {/* ========================================================= */}
+        {/* MEDAN A: KHAS UNTUK RESIT ZAKAT HARTA (BORANG A - PUTIH)   */}
+        {/* ========================================================= */}
+        {formData.zakatType === 'HARTA' ? (
+          <div className={isMultiScan ? "hidden" : "space-y-4 pt-1"}>
               
               {/* NOMBOR BILANGAN RESIT (5 ANGKA MERAH ATAS KANAN - TIADA KOD) */}
               <div className="space-y-1.5">
@@ -732,7 +781,7 @@ export default function ReviewPage() {
               </div>
 
               {/* TAHUN ZAKAT (KEKAL AKTIF & UTAMA UNTUK ARKIB RESIT) */}
-              <div className="space-y-1.5 transition-all">
+              <div className={isMultiScan ? "hidden" : "space-y-1.5 transition-all"}>
                 <div className="flex items-center justify-between ml-1">
                   <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest">
                     Tahun Zakat
@@ -763,7 +812,7 @@ export default function ReviewPage() {
               </div>
 
               {/* PILIHAN JENIS BERAS (DW HIJAU vs CS KUNING) */}
-              <div className="space-y-2">
+              <div className={isMultiScan ? "hidden" : "space-y-2"}>
                 <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                   Jenis Beras (Kadar Fitrah Brunei)
                 </label>
@@ -903,101 +952,101 @@ export default function ReviewPage() {
             </div>
           )}
 
-          {/* ========================================================= */}
-          {/* MEDAN BERSAMA: MAKLUMAT PEMBAYAR (KAD PINTAR & NAMA)       */}
-          {/* ========================================================= */}
-          
-          {/* NOMBOR KAD PINTAR */}
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-center justify-between ml-1">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                Nombor Kad Pintar <span className="font-normal text-slate-400 capitalize text-[10px] ml-1">(Pilihan)</span>
-              </label>
-            </div>
-            <input 
-              type="text" 
-              placeholder="Contoh: 01-123456"
-              value={formData.icNumber} 
-              onChange={e => {
-                const roman = convertArabicIndicToRomanDigits(e.target.value);
-                setFormData({...formData, icNumber: roman, isVerified: false});
-              }}
-              className="w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-400"
-            />
-          </div>
-
-          {/* NAMA PEMBAYAR */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between ml-1">
-              <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                Nama Pembayar <span className="font-normal text-slate-400 capitalize text-[10px] ml-1">(Pilihan)</span>
-              </label>
-            </div>
-            <div className="relative">
+          <div className={isMultiScan ? "hidden" : ""}>
+            {/* ========================================================= */}
+            {/* MEDAN BERSAMA: MAKLUMAT PEMBAYAR (KAD PINTAR & NAMA)       */}
+            {/* ========================================================= */}
+            
+            {/* NOMBOR KAD PINTAR */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  Nombor Kad Pintar <span className="font-normal text-slate-400 capitalize text-[10px] ml-1">(Pilihan)</span>
+                </label>
+              </div>
               <input 
                 type="text" 
-                placeholder="Contoh: Abu bin Ali"
-                value={formData.payerName} 
-                onChange={e => setFormData({...formData, payerName: e.target.value})}
+                placeholder="Contoh: 01-123456"
+                value={formData.icNumber} 
+                onChange={e => {
+                  const roman = convertArabicIndicToRomanDigits(e.target.value);
+                  setFormData({...formData, icNumber: roman, isVerified: false});
+                }}
                 className="w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-400"
               />
             </div>
 
-            {/* CHECKBOX WAKALAH */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-1 ml-1">
-              <label className="relative flex items-center cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isWakalah}
-                  onChange={e => setIsWakalah(e.target.checked)}
-                  className="w-4 h-4 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500 cursor-pointer accent-teal-600"
+            {/* NAMA PEMBAYAR */}
+            <div className="space-y-1.5 mt-4">
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  Nama Pembayar <span className="font-normal text-slate-400 capitalize text-[10px] ml-1">(Pilihan)</span>
+                </label>
+              </div>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="Contoh: Abu bin Ali"
+                  value={formData.payerName} 
+                  onChange={e => setFormData({...formData, payerName: e.target.value})}
+                  className="w-full rounded-2xl px-4 py-3.5 font-semibold outline-none shadow-sm transition-all bg-white border border-slate-200 text-slate-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-400"
                 />
-                <span className="ml-2 text-xs font-bold text-slate-700">
-                  Wakalah <span className="text-[11px] font-medium text-slate-500">(Mewakili Pembayar)</span>
-                </span>
-              </label>
+              </div>
+
+              {/* CHECKBOX WAKALAH */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-1 ml-1 mt-2">
+                <label className="relative flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isWakalah}
+                    onChange={e => setIsWakalah(e.target.checked)}
+                    className="w-4 h-4 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500 cursor-pointer accent-teal-600"
+                  />
+                  <span className="ml-2 text-xs font-bold text-slate-700">
+                    Wakalah <span className="text-[11px] font-medium text-slate-500">(Mewakili Pembayar)</span>
+                  </span>
+                </label>
+              </div>
             </div>
 
-          </div>
+            {/* MEDAN ALAMAT JIKA ZAKAT HARTA (TANPA JAWI) */}
+            {formData.zakatType === 'HARTA' && (
+              <div className="space-y-1.5 mt-4">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+                  Alamat Pembayar
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Contoh: No. 12, Spg 34, Kg. Kiulap (Pilihan)"
+                  value={formData.payerAddress} 
+                  onChange={e => setFormData({...formData, payerAddress: e.target.value})}
+                  className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm transition-all placeholder:text-slate-300"
+                />
+              </div>
+            )}
 
-
-          {/* MEDAN ALAMAT JIKA ZAKAT HARTA (TANPA JAWI) */}
-          {formData.zakatType === 'HARTA' && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                Alamat Pembayar
-              </label>
-              <input 
-                type="text" 
-                placeholder="Contoh: No. 12, Spg 34, Kg. Kiulap (Pilihan)"
-                value={formData.payerAddress} 
-                onChange={e => setFormData({...formData, payerAddress: e.target.value})}
-                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 outline-none shadow-sm transition-all placeholder:text-slate-300"
-              />
+            {/* KAD JUMLAH ZAKAT KESELURUHAN */}
+            <div className={`mt-5 rounded-2xl p-4 border flex justify-between items-center shadow-sm ${
+              formData.zakatType === 'HARTA' 
+                ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200' 
+                : 'bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-100'
+            }`}>
+              <div>
+                <p className={`text-[11px] font-bold uppercase tracking-widest ${
+                  formData.zakatType === 'HARTA' ? 'text-amber-800' : 'text-teal-700'
+                }`}>
+                  {formData.zakatType === 'HARTA' ? 'Jumlah Bayaran Zakat Harta' : 'Jumlah Bayaran Zakat Fitrah'}
+                </p>
+                <p className={`text-[10px] mt-0.5 ${
+                  formData.zakatType === 'HARTA' ? 'text-amber-700' : 'text-teal-600'
+                }`}>
+                  {formData.zakatType === 'HARTA' ? `Zakat Harta` : `(${totalMuzakki} Muzakki) × $${currentPrice.toFixed(2)}`}
+                </p>
+              </div>
+              <p className={`text-2xl font-black ${
+                formData.zakatType === 'HARTA' ? 'text-amber-900' : 'text-teal-800'
+              }`}>${totalAmount}</p>
             </div>
-          )}
-
-          {/* KAD JUMLAH ZAKAT KESELURUHAN */}
-          <div className={`mt-3 rounded-2xl p-4 border flex justify-between items-center shadow-sm ${
-            formData.zakatType === 'HARTA' 
-              ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200' 
-              : 'bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-100'
-          }`}>
-            <div>
-              <p className={`text-[11px] font-bold uppercase tracking-widest ${
-                formData.zakatType === 'HARTA' ? 'text-amber-800' : 'text-teal-700'
-              }`}>
-                {formData.zakatType === 'HARTA' ? 'Jumlah Bayaran Zakat Harta' : 'Jumlah Bayaran Zakat Fitrah'}
-              </p>
-              <p className={`text-[10px] mt-0.5 ${
-                formData.zakatType === 'HARTA' ? 'text-amber-700' : 'text-teal-600'
-              }`}>
-                {formData.zakatType === 'HARTA' ? `Zakat Harta` : `(${totalMuzakki} Muzakki) × $${currentPrice.toFixed(2)}`}
-              </p>
-            </div>
-            <p className={`text-2xl font-black ${
-              formData.zakatType === 'HARTA' ? 'text-amber-900' : 'text-teal-800'
-            }`}>${totalAmount}</p>
           </div>
         </div>
       </div>
@@ -1046,7 +1095,7 @@ export default function ReviewPage() {
           ) : (
             <Save size={20} />
           )}
-          {isSaving ? 'Menyimpan Arkib...' : 'Simpan Arkib'}
+          {isSaving ? 'Menyimpan...' : (isMultiScan ? `Simpan Resit Tanggungan (${multiCurrent}/${multiTotal})` : 'Simpan Arkib')}
         </button>
       </div>
 
