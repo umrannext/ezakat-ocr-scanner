@@ -16,7 +16,10 @@ export default function GlobalError({
   return (
     <html>
       <body>
-        <Error statusCode={500} title="Ralat Sistem. Sila hubungi Admin." />
+        <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+          <h2>Ralat Sistem Kritikal</h2>
+          <p style={{ color: 'red' }}>{error.message || "Unknown error"}</p>
+        </div>
       </body>
     </html>
   );
