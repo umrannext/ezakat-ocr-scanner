@@ -98,8 +98,8 @@ export default function ScanPage() {
       const blob = await res.blob();
       const file = new File([blob], "receipt.jpg", { type: "image/jpeg" });
       const compressed = await imageCompression(file, {
-        maxSizeMB: 0.4,        // Lebih besar → lebih tajam → OCR lebih tepat
-        maxWidthOrHeight: 1600, // 1600px optimal untuk Tesseract ketepatan tinggi
+        maxSizeMB: 0.15,
+        maxWidthOrHeight: 1100,
         useWebWorker: true,
       });
 
@@ -261,8 +261,8 @@ export default function ScanPage() {
       const blob = await res.blob();
       const file = new File([blob], "receipt.jpg", { type: "image/jpeg" });
       const compressed = await imageCompression(file, {
-        maxSizeMB: 0.4,        // Lebih besar → lebih tajam → OCR lebih tepat
-        maxWidthOrHeight: 1600, // 1600px optimal untuk Tesseract ketepatan tinggi
+        maxSizeMB: 0.15,
+        maxWidthOrHeight: 1100,
         useWebWorker: true,
       });
 
@@ -340,40 +340,74 @@ export default function ScanPage() {
                 setShowCancelOptions(false);
                 setIsProcessing(true);
                 setProcessingMsg('Merekodkan status resit tidak dijumpai...');
-                // Hantar rekod kosong / tanda tidak dijumpai ke API append
-                const parentReceiptId = sessionStorage.getItem('multiParentId');
-                if (parentReceiptId) {
+                // Hantar rekod kosong / tanda tidak dijumpai
+                let currentMissing = parseInt(sessionStorage.getItem('multiMissing') || '0');
+                sessionStorage.setItem('multiMissing', (currentMissing + 1).toString());
+                
+                if (multiCurrent < multiTotal) {
+                  sessionStorage.setItem('multiCurrent', (multiCurrent + 1).toString());
+                  window.location.reload();
+                } else {
+                  // Jika ini resit terakhir yang batal, simpan semua ke pangkalan data
+                  const basePayload = JSON.parse(sessionStorage.getItem('multiBasePayload') || '{}');
+                  basePayload.dependentImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]');
+                  basePayload.dependentReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]');
+                  basePayload.missingDependents = currentMissing + 1;
+                  
                   try {
-                    const res = await fetch('/api/receipts/append', {
+                    const res = await fetch('/api/receipts', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ id: parentReceiptId, isMissing: true })
+                      body: JSON.stringify(basePayload)
                     });
-                    
-                    if (multiCurrent < multiTotal) {
-                      sessionStorage.setItem('multiCurrent', (multiCurrent + 1).toString());
-                      window.location.reload();
-                    } else {
-                      sessionStorage.removeItem('multiParentId');
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                      sessionStorage.removeItem('multiBasePayload');
+                      sessionStorage.removeItem('multiDepImages');
+                      sessionStorage.removeItem('multiDepReceipts');
                       sessionStorage.removeItem('multiTotal');
                       sessionStorage.removeItem('multiCurrent');
-                      router.push(`/receipt/${parentReceiptId}`);
+                      sessionStorage.removeItem('multiMissing');
+                      router.push(`/receipt/${data.data.id}`);
+                    } else {
+                      alert('Gagal menyimpan rekod akhir.');
                     }
                   } catch (e) {
                     alert('Ralat semasa merekod.');
-                    setIsProcessing(false);
                   }
+                  setIsProcessing(false);
                 }
               }} className="w-full py-3.5 bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold rounded-xl hover:bg-amber-500/30 transition-all">
                 Tanda "Tidak Dijumpai" (Langgan)
               </button>
               
-              <button onClick={() => {
-                const parentId = sessionStorage.getItem('multiParentId');
-                sessionStorage.removeItem('multiParentId');
-                sessionStorage.removeItem('multiTotal');
-                sessionStorage.removeItem('multiCurrent');
-                router.push(`/receipt/${parentId}`);
+              <button onClick={async () => {
+                const basePayload = JSON.parse(sessionStorage.getItem('multiBasePayload') || '{}');
+                basePayload.dependentImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]');
+                basePayload.dependentReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]');
+                basePayload.missingDependents = parseInt(sessionStorage.getItem('multiMissing') || '0');
+                
+                try {
+                  const res = await fetch('/api/receipts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(basePayload)
+                  });
+                  const data = await res.json();
+                  if (res.ok && data.success) {
+                    sessionStorage.removeItem('multiBasePayload');
+                    sessionStorage.removeItem('multiDepImages');
+                    sessionStorage.removeItem('multiDepReceipts');
+                    sessionStorage.removeItem('multiTotal');
+                    sessionStorage.removeItem('multiCurrent');
+                    sessionStorage.removeItem('multiMissing');
+                    router.push(`/receipt/${data.data.id}`);
+                  } else {
+                    alert('Gagal merekod sebelum batal.');
+                  }
+                } catch (e) {
+                  alert('Ralat semasa merekod.');
+                }
               }} className="w-full py-3.5 bg-slate-800 border border-slate-700 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-all mt-4">
                 Batal Sesi & Tamat
               </button>

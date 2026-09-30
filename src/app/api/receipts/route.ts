@@ -37,7 +37,27 @@ export async function GET(req: Request) {
       where: userRole === 'AMIL' ? { amilId: userId } : {},
       orderBy: { createdAt: 'desc' },
       take: limit,
-      include: {
+      select: {
+        id: true,
+        receiptNumber: true,
+        payerName: true,
+        payerIcNumber: true,
+        isVerified: true,
+        isWakalah: true,
+        dependents: true,
+        paymentDate: true,
+        totalAmount: true,
+        zakatType: true,
+        hartaSubtype: true,
+        groupId: true,
+        remarks: true,
+        dependentReceipts: true,
+        missingDependents: true,
+        paidAmount: true,
+        amilId: true,
+        riceTypeId: true,
+        createdAt: true,
+        updatedAt: true,
         riceType: {
           select: { id: true, name: true, code: true, price: true, activeYear: true }
         },

@@ -364,67 +364,83 @@ export default function ReviewPage() {
         imageUrl: (compressedThumb && compressedThumb.length < 150000) ? compressedThumb : null
       };
 
-      let res;
-      let data;
-      
-      const parentReceiptId = sessionStorage.getItem('multiParentId');
-
-      if (isMultiScan && parentReceiptId) {
-        // APPEND to existing parent receipt
-        res = await fetch('/api/receipts/append', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: parentReceiptId,
-            imageUrl: payload.imageUrl,
-            receiptNumber: payload.receiptNumber
-          })
-        });
-        data = await res.json();
-      } else {
-        // CREATE new base receipt
-        res = await fetch('/api/receipts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        data = await res.json();
+      // 1. Permulaan Sesi Multi-Scan
+      if (!isMultiScan && formData.zakatType === 'FITRAH' && formData.dependents > 0) {
+        sessionStorage.setItem('multiBasePayload', JSON.stringify(payload));
+        sessionStorage.setItem('multiDepImages', JSON.stringify([]));
+        sessionStorage.setItem('multiDepReceipts', JSON.stringify([]));
+        sessionStorage.setItem('multiTotal', formData.dependents.toString());
+        sessionStorage.setItem('multiCurrent', '1');
+        sessionStorage.setItem('multiMissing', '0');
+        sessionStorage.removeItem('scannedImage');
+        router.push('/scan?multi=true');
+        return;
       }
+
+      // 2. Semasa Sesi Multi-Scan
+      if (isMultiScan) {
+        let currentIdx = parseInt(sessionStorage.getItem('multiCurrent') || '1');
+        let totalDep = parseInt(sessionStorage.getItem('multiTotal') || '1');
+        
+        let depImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]');
+        let depReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]');
+        
+        if (payload.imageUrl) depImages.push(payload.imageUrl);
+        if (payload.receiptNumber) depReceipts.push(payload.receiptNumber);
+        
+        sessionStorage.setItem('multiDepImages', JSON.stringify(depImages));
+        sessionStorage.setItem('multiDepReceipts', JSON.stringify(depReceipts));
+        
+        if (currentIdx < totalDep) {
+          currentIdx++;
+          sessionStorage.setItem('multiCurrent', currentIdx.toString());
+          sessionStorage.removeItem('scannedImage');
+          router.push('/scan?multi=true');
+          return;
+        } else {
+          // Tanggungan selesai, submit semua
+          const basePayload = JSON.parse(sessionStorage.getItem('multiBasePayload') || '{}');
+          basePayload.dependentImages = depImages;
+          basePayload.dependentReceipts = depReceipts;
+          basePayload.missingDependents = parseInt(sessionStorage.getItem('multiMissing') || '0');
+          
+          const res = await fetch('/api/receipts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(basePayload)
+          });
+          const data = await res.json();
+          
+          if (res.ok && data.success) {
+            sessionStorage.removeItem('scannedImage');
+            sessionStorage.removeItem('multiBasePayload');
+            sessionStorage.removeItem('multiDepImages');
+            sessionStorage.removeItem('multiDepReceipts');
+            sessionStorage.removeItem('multiTotal');
+            sessionStorage.removeItem('multiCurrent');
+            sessionStorage.removeItem('multiMissing');
+            
+            router.push(`/receipt/${data.data.id}`);
+            return;
+          } else {
+            alert(data.error || "Gagal menyimpan rekod data. Sila semak maklumat resit.");
+            setIsSaving(false);
+            return;
+          }
+        }
+      }
+
+      // 3. Simpanan Biasa (Bukan Multi-Scan)
+      const res = await fetch('/api/receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
 
       if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
         
-        // Handle Multi Scan flow (Initial Setup)
-        if (!isMultiScan && formData.zakatType === 'FITRAH' && formData.dependents > 0) {
-          sessionStorage.setItem('multiParentId', data.data.id);
-          sessionStorage.setItem('multiTotal', formData.dependents.toString());
-          sessionStorage.setItem('multiCurrent', '1');
-          
-          router.push('/scan?multi=true');
-          return;
-        }
-        
-        // Handle Multi Scan flow (Continuation)
-        if (isMultiScan) {
-          let currentIdx = parseInt(sessionStorage.getItem('multiCurrent') || '1');
-          let totalDep = parseInt(sessionStorage.getItem('multiTotal') || '1');
-          
-          if (currentIdx < totalDep) {
-            currentIdx++;
-            sessionStorage.setItem('multiCurrent', currentIdx.toString());
-            router.push('/scan?multi=true');
-            return;
-          } else {
-            // Selesai tanggungan
-            const finalId = sessionStorage.getItem('multiParentId');
-            sessionStorage.removeItem('multiParentId');
-            sessionStorage.removeItem('multiTotal');
-            sessionStorage.removeItem('multiCurrent');
-            router.push(`/receipt/${finalId}`);
-            return;
-          }
-        }
-
         if (data.message) {
           setReconciledMessage(data.message);
         }

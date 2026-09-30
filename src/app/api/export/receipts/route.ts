@@ -28,9 +28,23 @@ export async function GET(req: Request) {
       ]
     } : {};
 
-    const receipts = await prisma.receipt.findMany({
+      const receipts = await prisma.receipt.findMany({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        receiptNumber: true,
+        payerName: true,
+        payerIcNumber: true,
+        isVerified: true,
+        isWakalah: true,
+        dependents: true,
+        paymentDate: true,
+        totalAmount: true,
+        zakatType: true,
+        hartaSubtype: true,
+        remarks: true,
+        paidAmount: true,
+        createdAt: true,
         amil: {
           select: { name: true, loginId: true, mosque: { select: { name: true, zone: { select: { name: true } } } } }
         },
