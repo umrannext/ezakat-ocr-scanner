@@ -1,6 +1,5 @@
 import prisma from '@/lib/prisma';
 import { uploadToOneDrive, createSharingLink } from './ms-graph';
-import { PDFDocument, rgb } from 'pdf-lib';
 
 /**
  * Memproses fail secara Asynchronous ke OneDrive dan membina PDF
@@ -64,11 +63,7 @@ export async function processOneDriveSync(
 function base64ToBuffer(base64: string): ArrayBuffer {
   const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
   const binaryString = atob(base64Data);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
+  const bytes = Uint8Array.from(binaryString, (m) => m.codePointAt(0)!);
   return bytes.buffer;
 }
 
