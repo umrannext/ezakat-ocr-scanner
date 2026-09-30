@@ -440,7 +440,7 @@ export default function ReviewPage() {
 
       if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');
-        
+
         if (data.message) {
           setReconciledMessage(data.message);
         }
