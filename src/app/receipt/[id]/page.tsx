@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Printer, CheckCircle2, Download } from 'lucide-react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
+import ImageViewer from './ImageViewer';
 
 export default async function ReceiptPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -120,30 +121,12 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2.5">
                 Salinan Imej Resit Fizikal Diarkib
               </span>
-              <div className="space-y-4">
-                {/* Main Receipt Image */}
-                {(receipt.imageShareLink || receipt.imageUrl) && (
-                  <div className="relative">
-                    {receipt.dependents > 0 && (
-                      <div className="text-[9px] font-black text-slate-400 mb-1">Resit Utama ({receipt.receiptNumber})</div>
-                    )}
-                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
-                      <img src={receipt.imageShareLink || receipt.imageUrl!} alt="Resit Utama" className="max-h-56 w-auto object-contain mx-auto" />
-                    </div>
-                  </div>
-                )}
-                
-                {/* Dependent Receipt Images */}
-                {(receipt.dependentShareLinks.length > 0 ? receipt.dependentShareLinks : receipt.dependentImages).map((img, idx) => (
-                  <div key={`dep-${idx}`} className="relative">
-                    <div className="text-[9px] font-black text-slate-400 mb-1">
-                      Resit Tanggungan {idx + 1} {receipt.dependentReceipts[idx] ? `(${receipt.dependentReceipts[idx]})` : ''}
-                    </div>
-                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
-                      <img src={img} alt={`Resit Tanggungan ${idx + 1}`} className="max-h-56 w-auto object-contain mx-auto" />
-                    </div>
-                  </div>
-                ))}
+                <ImageViewer 
+                  mainImage={receipt.imageShareLink || receipt.imageUrl} 
+                  dependentImages={receipt.dependentShareLinks.length > 0 ? receipt.dependentShareLinks : receipt.dependentImages} 
+                  receiptNumber={receipt.receiptNumber} 
+                  dependentReceipts={receipt.dependentReceipts} 
+                />
                 
                 {/* Missing Dependents Info */}
                 {receipt.missingDependents > 0 && (
@@ -151,7 +134,6 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
                     {receipt.missingDependents} resit tanggungan ditandakan hilang (Resit fizikal tidak dijumpai).
                   </div>
                 )}
-              </div>
             </div>
           )}
           
