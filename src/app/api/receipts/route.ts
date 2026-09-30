@@ -203,14 +203,21 @@ export async function POST(req: Request) {
     });
 
     // 7. Mulakan sinkronisasi OneDrive di latar belakang tanpa melengahkan respons!
-    waitUntil(
-      processOneDriveSync(
+    // 7. Mulakan sinkronisasi OneDrive (Sengaja kita 'await' buat sementara waktu untuk debug ralat OneDrive)
+    try {
+      await processOneDriveSync(
         createdReceipt.id,
         receiptNumber,
         safeImageUrl,
         data.dependentImages || []
-      )
-    );
+      );
+    } catch (syncError: any) {
+      // Rekod gagal OneDrive
+      return NextResponse.json({ 
+        success: false, 
+        error: `Resit berjaya masuk DB, tetapi gagal ke OneDrive: ${syncError?.message}` 
+      }, { status: 500 });
+    }
 
     return NextResponse.json({ 
       success: true, 

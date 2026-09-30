@@ -93,6 +93,7 @@ export async function processOneDriveSync(
       where: { id: receiptId },
       data: { syncStatus: 'FAILED' }
     });
+    throw error;
   }
 }
 
