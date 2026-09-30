@@ -482,6 +482,7 @@ export default function ReviewPage() {
   const isSelectedCS = selectedRice?.name.toLowerCase().includes('siam') || selectedRice?.code?.includes('CS') || isReceiptCS;
 
   return (
+    <>
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col pb-[110px]">
       {/* Header Bar */}
       <div className="bg-white/80 backdrop-blur-md p-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-slate-200/50">
@@ -1293,7 +1294,7 @@ export default function ReviewPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
