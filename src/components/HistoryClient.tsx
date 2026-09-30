@@ -265,30 +265,14 @@ export default function HistoryClient({
         ) : (
           filtered.map((receipt) => {
             const isHarta = receipt.zakatType === 'HARTA';
+            const totalExpected = (receipt.dependents || 0) + 1;
+            const missing = receipt.missingDependents || 0;
+            const uploaded = totalExpected - missing;
+            
             return (
               <div key={receipt.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100/50 relative group transition-shadow hover:shadow-md">
                 <div className="flex justify-between items-start">
-                  <div className="flex gap-3.5 items-center overflow-hidden">
-                    {receipt.imageUrl ? (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewReceipt(receipt)}
-                        className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-200 relative group/thumb shadow-xs active:scale-95 transition-transform bg-slate-900"
-                        title="Klik untuk lihat gambar resit asal"
-                      >
-                        <img src={receipt.imageUrl} alt="Resit" className="w-full h-full object-cover opacity-90 group-hover/thumb:opacity-100 transition-opacity" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
-                          <Eye size={16} className="text-white drop-shadow" />
-                        </div>
-                      </button>
-                    ) : (
-                      <div className={`p-3 rounded-xl shrink-0 transition-colors ${
-                        isHarta ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-500'
-                      }`}>
-                        <FileText size={20} />
-                      </div>
-                    )}
-                    <div className="overflow-hidden">
+                  <div className="overflow-hidden">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-bold text-slate-800 text-sm truncate pr-2">{receipt.payerName || 'Pembayar Zakat'}</p>
                         {receipt.isWakalah && (
@@ -319,13 +303,12 @@ export default function HistoryClient({
                         </p>
                       )}
                       <div className="flex gap-1 mt-1">
-                        <span className="text-[8px] font-bold text-teal-600 bg-teal-50 px-1 py-0.5 rounded border border-teal-100 flex items-center gap-0.5">✓ Data Synced</span>
-                        {receipt.imageUrl && (
-                          <span className="text-[8px] font-bold text-teal-600 bg-teal-50 px-1 py-0.5 rounded border border-teal-100 flex items-center gap-0.5">✓ Image Synced</span>
-                        )}
+                        <span className="text-[9px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 flex items-center gap-0.5">✓ Data Synced</span>
+                        <span className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
+                          {uploaded}/{totalExpected} dimuatnaik{missing > 0 ? `, (${missing}) hilang` : ''}
+                        </span>
                       </div>
                     </div>
-                  </div>
                   <div className="text-right flex flex-col items-end shrink-0 ml-2">
                     <span className={`inline-block text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm ${
                       isHarta
@@ -357,9 +340,7 @@ export default function HistoryClient({
                       <Eye size={13} className="text-slate-500" />
                       <span>Gambar Asal</span>
                     </button>
-                  ) : (
-                    <span className="text-[10px] text-slate-300 italic px-2.5 py-1.5">Tiada gambar resit</span>
-                  )}
+                  ) : null}
                   
                   <a 
                     href={`/receipt/${receipt.id}`}
