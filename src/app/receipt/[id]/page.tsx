@@ -115,26 +115,26 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
           </div>
           
           {/* SALINAN ASAL RESIT DIARKIB */}
-          {(receipt.imageUrl || receipt.dependentImages.length > 0 || receipt.missingDependents > 0) && (
+          {(receipt.imageShareLink || receipt.imageUrl || receipt.dependentShareLinks.length > 0 || receipt.dependentImages.length > 0 || receipt.missingDependents > 0) && (
             <div className="p-5 border-t border-dashed border-slate-300 bg-slate-50/50 text-center">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2.5">
                 Salinan Imej Resit Fizikal Diarkib
               </span>
               <div className="space-y-4">
                 {/* Main Receipt Image */}
-                {receipt.imageUrl && (
+                {(receipt.imageShareLink || receipt.imageUrl) && (
                   <div className="relative">
                     {receipt.dependents > 0 && (
                       <div className="text-[9px] font-black text-slate-400 mb-1">Resit Utama ({receipt.receiptNumber})</div>
                     )}
                     <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs max-h-56">
-                      <img src={receipt.imageUrl} alt="Resit Utama" className="max-h-56 w-auto object-contain mx-auto" />
+                      <img src={receipt.imageShareLink || receipt.imageUrl!} alt="Resit Utama" className="max-h-56 w-auto object-contain mx-auto" />
                     </div>
                   </div>
                 )}
                 
                 {/* Dependent Receipt Images */}
-                {receipt.dependentImages.map((img, idx) => (
+                {(receipt.dependentShareLinks.length > 0 ? receipt.dependentShareLinks : receipt.dependentImages).map((img, idx) => (
                   <div key={`dep-${idx}`} className="relative">
                     <div className="text-[9px] font-black text-slate-400 mb-1">
                       Resit Tanggungan {idx + 1} {receipt.dependentReceipts[idx] ? `(${receipt.dependentReceipts[idx]})` : ''}

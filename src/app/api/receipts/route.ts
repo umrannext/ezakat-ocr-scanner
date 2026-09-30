@@ -178,7 +178,7 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    // 6. Cipta rekod resit tunggal (Hanya simpan metadata dan Base64 DIBUANG)
+    // 6. Cipta rekod resit tunggal dengan menyertakan Base64 (untuk E-Resit)
     const createdReceipt = await prisma.receipt.create({
         data: {
         receiptNumber: receiptNumber,
@@ -198,7 +198,9 @@ export async function POST(req: Request) {
         dependents: safeDependents,
         paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
         totalAmount: parseFloat(safeTotalAmount.toFixed(2)),
-        syncStatus: 'PENDING'
+        syncStatus: 'PENDING',
+        imageUrl: safeImageUrl,
+        dependentImages: data.dependentImages || []
       }
     });
 

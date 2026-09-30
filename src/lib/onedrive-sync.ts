@@ -42,10 +42,8 @@ export async function processOneDriveSync(
         syncStatus: 'COMPLETED',
         imageShareLink: mainShareLink,
         dependentShareLinks: depShareLinks,
-        pdfShareLink: null,
-        // Boleh padam data base64 lama untuk jimat ruang DB
-        imageUrl: null,
-        dependentImages: []
+        pdfShareLink: null
+        // Base64 dikekalkan dalam DB supaya E-Resit boleh paparkan gambar
       }
     });
 
