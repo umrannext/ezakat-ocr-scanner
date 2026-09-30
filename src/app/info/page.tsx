@@ -155,52 +155,6 @@ export default async function InfoPage() {
           </div>
         </section>
 
-        {/* ============================================================== */}
-        {/* 5. PANDUAN SEMASA TIADA TALIAN INTERNET (OFFLINE & BETA SYNC)  */}
-        {/* ============================================================== */}
-        <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 space-y-4">
-          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-            <span className="bg-sky-50 text-sky-600 p-2.5 rounded-2xl">
-              <Smartphone size={22} />
-            </span>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-sky-600 block">SOP Kontigensi</span>
-                <span className="text-[9px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-300">
-                  Beta
-                </span>
-              </div>
-              <h2 className="text-base font-black text-slate-800">Panduan Luar Talian (Tiada Internet)</h2>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Jika kutipan dibuat di kawasan kariah tanpa capaian internet, amil ada 2 kaedah mudah:
-          </p>
-
-          <div className="space-y-3 text-xs">
-            {/* Kaedah 1: Simpan Galeri */}
-            <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70">
-              <p className="font-bold text-slate-800 flex items-center gap-2 mb-1">
-                <span className="bg-slate-200 px-2 py-0.5 rounded text-[10px]">A</span> Simpan ke Galeri Telefon
-              </p>
-              <p className="text-[11px] text-slate-600 pl-8">
-                Guna kamera biasa telefon untuk mengambil gambar resit. Setelah mendapat capaian internet kelak, buka sistem dan muat naik dari tab <strong>&ldquo;Dari Galeri&rdquo;</strong>.
-              </p>
-            </div>
-
-            {/* Kaedah 2: Pengimbas Luar Talian Auto-Sync */}
-            <div className="p-3.5 rounded-2xl border border-sky-200 bg-sky-50/50">
-              <p className="font-bold text-sky-950 flex items-center gap-2 mb-1">
-                <span className="bg-sky-200 text-sky-800 px-2 py-0.5 rounded text-[10px]">B</span> Pengimbas Auto-Sync (Beta)
-              </p>
-              <p className="text-[11px] text-slate-600 pl-8">
-                Terus guna pengimbas sistem tanpa internet. Data resit akan disimpan dalam peranti (Auto-Sync) dan dihantar ke pelayan apabila internet bersambung semula.
-              </p>
-            </div>
-          </div>
-        </section>
-
       </div>
     </div>
   );

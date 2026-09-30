@@ -12,18 +12,13 @@ const FALLBACK_RATES = [
 export default function AdminSettings() {
   const [rates, setRates] = useState<any[]>(FALLBACK_RATES);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-  
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<string>('');
-
-  const [showAdd, setShowAdd] = useState(false);
-  const [newYear, setNewYear] = useState('1448H');
-  const [newSiam, setNewSiam] = useState('1.93');
-  const [newWangi, setNewWangi] = useState('2.84');
-  const [isAdding, setIsAdding] = useState(false);
   
   const [goldPrice, setGoldPrice] = useState('115.00');
+  const [silverPrice, setSilverPrice] = useState('1.20');
+  const [isSavingSilver, setIsSavingSilver] = useState(false);
+  const [silverSavedMsg, setSilverSavedMsg] = useState(false);
   const [isSavingGold, setIsSavingGold] = useState(false);
   const [goldSavedMsg, setGoldSavedMsg] = useState(false);
   const [isSyncingGold, setIsSyncingGold] = useState(false);
@@ -45,6 +40,20 @@ export default function AdminSettings() {
     setIsLoading(false);
   };
 
+  const fetchSilverPrice = async () => {
+    try {
+      const res = await fetch('/api/settings/silver');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.price && data.price > 0) {
+          setSilverPrice(data.price.toString());
+        }
+      }
+    } catch (e) {
+      console.warn('Silver price fallback active:', e);
+    }
+  };
+
   const fetchGoldPrice = async () => {
     try {
       const res = await fetch('/api/settings/gold');
@@ -62,28 +71,30 @@ export default function AdminSettings() {
   useEffect(() => {
     fetchRates();
     fetchGoldPrice();
+    fetchSilverPrice();
   }, []);
 
-  const handleSync = async () => {
-    if (!confirm("Adakah anda pasti untuk sync harga rasmi dari laman web KHEU (MORA) untuk tahun 1447H?")) return;
-    setIsSyncing(true);
+
+
+  const handleSaveSilver = async () => {
+    setIsSavingSilver(true);
+    setSilverSavedMsg(false);
     try {
-      const res = await fetch('/api/settings/sync-rates', { 
+      const res = await fetch('/api/settings/silver', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetYear: '1447H' })
+        body: JSON.stringify({ price: parseFloat(silverPrice) })
       });
-      const data = await res.json();
-      if (data.success) {
-        alert(data.message || 'Kadar berjaya diselaraskan!');
-        fetchRates();
+      if (res.ok) {
+        setSilverSavedMsg(true);
+        setTimeout(() => setSilverSavedMsg(false), 3000);
       } else {
-        alert(data.error || 'Ralat penyelarasan');
+        alert("Gagal mengemaskini harga perak");
       }
     } catch (e) {
-      alert("Ralat semasa sync kadar MORA.");
+      alert("Ralat semasa menyambung ke server");
     }
-    setIsSyncing(false);
+    setIsSavingSilver(false);
   };
 
   const handleSaveGold = async () => {
@@ -146,35 +157,7 @@ export default function AdminSettings() {
     }
   };
 
-  const handleAddYear = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsAdding(true);
-    try {
-      await fetch('/api/settings/rates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Beras Siam', price: newSiam, activeYear: newYear, code: `B_SIAM_${newYear}` })
-      });
-      await fetch('/api/settings/rates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Beras Wangi', price: newWangi, activeYear: newYear, code: `B_WANGI_${newYear}` })
-      });
-      setShowAdd(false);
-      fetchRates();
-    } catch (e) {
-      alert("Gagal menambah tahun baru");
-    }
-    setIsAdding(false);
-  };
 
-  // Group rates by Hijrah year
-  const grouped = rates.reduce((acc: any, rate: any) => {
-    const yr = rate.activeYear || '1447H';
-    if (!acc[yr]) acc[yr] = [];
-    acc[yr].push(rate);
-    return acc;
-  }, {});
 
   return (
     <div className="space-y-6">
@@ -187,117 +170,57 @@ export default function AdminSettings() {
             </div>
             <div>
               <h2 className="font-black text-slate-800 text-lg leading-tight">Kadar Zakat Fitrah (Beras)</h2>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">Kadar rasmi Brunei mengikut gred beras dan tahun Hijrah</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Kadar rasmi Brunei mengikut gred beras</p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-2 rounded-xl transition-colors active:scale-95 shadow-xs"
-            >
-              <Plus size={14} /> Tambah Tahun
-            </button>
-            <button 
-              onClick={handleSync}
-              disabled={isSyncing}
-              title="Sync kadar rasmi KHEU"
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors active:scale-95 shadow-xs"
-            >
-              <RefreshCw size={14} className={isSyncing ? 'animate-spin text-teal-600' : ''} /> Sync MORA
-            </button>
           </div>
         </div>
 
-        {/* Modal / Form Tambah Tahun Baru */}
-        {showAdd && (
-          <form onSubmit={handleAddYear} className="mb-6 bg-slate-50 p-5 rounded-2xl border border-teal-200/60 shadow-xs animate-in fade-in duration-200">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Sparkles size={16} className="text-teal-600" />
-                Tambah Kadar Tahun Hijrah Baru
-              </h3>
-              <button type="button" onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X size={16}/>
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tahun Hijrah</label>
-                <input required value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Cth: 1448H" className="w-full text-sm font-bold mt-1 p-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-400" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Beras Siam ($)</label>
-                <input required type="number" step="0.01" value={newSiam} onChange={e => setNewSiam(e.target.value)} className="w-full text-sm font-bold mt-1 p-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-400" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Beras Wangi ($)</label>
-                <input required type="number" step="0.01" value={newWangi} onChange={e => setNewWangi(e.target.value)} className="w-full text-sm font-bold mt-1 p-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-teal-400" />
-              </div>
-            </div>
-            <button disabled={isAdding} type="submit" className="w-full bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-bold text-sm py-3 rounded-xl shadow-sm hover:opacity-95 active:scale-98 transition-all">
-              {isAdding ? 'Menyimpan...' : 'Simpan Kadar Tahun Baru'}
-            </button>
-          </form>
-        )}
-
-        {/* Senarai Kadar Zakat Fitrah Mengikut Tahun */}
-        <div className="space-y-4">
-          {Object.keys(grouped).sort().reverse().map(year => (
-            <div key={year} className="border border-slate-200/70 rounded-2xl overflow-hidden bg-white shadow-xs">
-              <div className="bg-gradient-to-r from-teal-50 to-slate-50 px-4 py-2.5 border-b border-slate-100 flex justify-between items-center">
-                <span className="text-xs font-black text-teal-800 tracking-wide">TAHUN HIJRAH {year}</span>
-                {year === '1447H' && (
-                  <span className="bg-teal-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">
-                    Semasa
-                  </span>
-                )}
-              </div>
-              <div className="divide-y divide-slate-100">
-                {grouped[year].map((rate: any) => (
-                  <div key={rate.id} className="flex justify-between items-center p-4 hover:bg-slate-50/50 transition-colors">
-                    <div>
-                      <span className="font-bold text-slate-800 text-sm block">{rate.name}</span>
-                      <span className="text-[11px] text-slate-400 font-medium">1 Gantang / Seorang</span>
+        {/* Senarai Kadar Zakat Fitrah */}
+        <div className="border border-slate-200/70 rounded-2xl overflow-hidden bg-white shadow-xs">
+          <div className="divide-y divide-slate-100">
+            {rates.filter((r: any) => r.activeYear === '1447H').map((rate: any) => (
+              <div key={rate.id} className="flex justify-between items-center p-4 hover:bg-slate-50/50 transition-colors">
+                <div>
+                  <span className="font-bold text-slate-800 text-sm block">{rate.name}</span>
+                  <span className="text-[11px] text-slate-400 font-medium">1 Gantang / Seorang</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {editingId === rate.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-slate-400">$</span>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value)}
+                        className="w-20 text-sm font-bold border border-teal-400 rounded-lg px-2 py-1 text-right focus:ring-2 focus:ring-teal-400 outline-none"
+                        autoFocus
+                      />
+                      <button onClick={() => saveEdit(rate.id)} className="text-teal-700 hover:text-teal-800 bg-teal-100 p-2 rounded-lg transition-colors" title="Simpan">
+                        <Save size={16} />
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-slate-700 bg-slate-100 p-2 rounded-lg transition-colors" title="Batal">
+                        <X size={16} />
+                      </button>
                     </div>
+                  ) : (
                     <div className="flex items-center gap-3">
-                      {editingId === rate.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-bold text-slate-400">$</span>
-                          <input 
-                            type="number" 
-                            step="0.01"
-                            value={editPrice}
-                            onChange={(e) => setEditPrice(e.target.value)}
-                            className="w-20 text-sm font-bold border border-teal-400 rounded-lg px-2 py-1 text-right focus:ring-2 focus:ring-teal-400 outline-none"
-                            autoFocus
-                          />
-                          <button onClick={() => saveEdit(rate.id)} className="text-teal-700 hover:text-teal-800 bg-teal-100 p-2 rounded-lg transition-colors" title="Simpan">
-                            <Save size={16} />
-                          </button>
-                          <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-slate-700 bg-slate-100 p-2 rounded-lg transition-colors" title="Batal">
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-teal-600 text-base">
-                            ${Number(rate.price || 0).toFixed(2)}
-                          </span>
-                          <button 
-                            onClick={() => { setEditingId(rate.id); setEditPrice(rate.price.toString()); }}
-                            className="text-slate-400 hover:text-teal-600 p-1.5 hover:bg-teal-50 rounded-lg transition-colors"
-                            title="Edit Harga"
-                          >
-                            <Edit2 size={15} />
-                          </button>
-                        </div>
-                      )}
+                      <span className="font-black text-teal-600 text-base">
+                        ${Number(rate.price || 0).toFixed(2)}
+                      </span>
+                      <button 
+                        onClick={() => { setEditingId(rate.id); setEditPrice(rate.price.toString()); }}
+                        className="text-slate-400 hover:text-teal-600 p-1.5 hover:bg-teal-50 rounded-lg transition-colors"
+                        title="Edit Harga"
+                      >
+                        <Edit2 size={15} />
+                      </button>
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -309,7 +232,7 @@ export default function AdminSettings() {
               <Coins size={22} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-amber-950 leading-tight">Kadar Zakat Harta (Emas &amp; Nisab)</h3>
+              <h3 className="text-lg font-black text-amber-950 leading-tight">Kadar Zakat Harta (Emas)</h3>
               <p className="text-xs text-amber-800/80 font-medium mt-0.5">
                 Nisab zakat harta di Brunei bersamaan 85 gram emas tulen (999).
               </p>
@@ -395,6 +318,66 @@ export default function AdminSettings() {
           </button>
         </div>
       </div>
+
+      {/* 3. SEKSYEN KADAR ZAKAT HARTA (PERAK) */}
+      <div className="bg-gradient-to-br from-slate-200/50 via-slate-100 to-slate-50 p-6 rounded-3xl border border-slate-300 shadow-sm mt-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-slate-500 p-2.5 rounded-xl text-white shadow-xs">
+            <Coins size={22} />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-800 leading-tight">Kadar Zakat Harta (Perak)</h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Nisab zakat harta perak di Brunei bersamaan 595 gram perak tulen.
+            </p>
+          </div>
+        </div>
+
+        {silverSavedMsg && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold p-3 rounded-xl flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            Harga perak berjaya disimpan dan nisab dikemaskini!
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end bg-white/70 backdrop-blur-xs p-4 rounded-2xl border border-slate-300">
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+              Harga 1 Gram Perak ($)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-3 font-bold text-slate-400 text-sm">$</span>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={silverPrice} 
+                onChange={e => setSilverPrice(e.target.value)} 
+                className="w-full text-base font-bold pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 outline-none transition-all" 
+                placeholder="Cth: 1.20"
+              />
+            </div>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              Nisab Zakat Harta (595g)
+            </label>
+            <div className="text-xl font-black text-slate-700 mt-1">
+              ${parseFloat(silverPrice || '0') > 0 ? (parseFloat(silverPrice) * 595).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+            </div>
+          </div>
+
+          <button 
+            onClick={handleSaveSilver} 
+            disabled={isSavingSilver} 
+            className="w-full bg-gradient-to-r from-slate-600 to-slate-700 text-white font-bold py-3 px-4 rounded-xl hover:from-slate-700 hover:to-slate-800 flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-slate-600/20 cursor-pointer disabled:opacity-60"
+          >
+            {isSavingSilver ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            Simpan Harga Perak
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 }
