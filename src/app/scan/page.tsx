@@ -308,14 +308,14 @@ export default function ScanPage() {
 
       {/* MULTI SCAN OVERLAY (TANGGUNGAN) */}
       {isMultiScan && !adjustImage && (
-        <div className="absolute top-0 left-0 w-full z-40 p-4 bg-gradient-to-b from-black/80 to-transparent pt-12 flex justify-between items-start">
-          <div className="bg-teal-900/80 backdrop-blur-sm border border-teal-500/30 px-4 py-2 rounded-2xl shadow-lg">
+        <div className="absolute top-16 left-0 w-full z-10 p-4 pt-4 flex justify-between items-start pointer-events-none">
+          <div className="bg-teal-900/80 backdrop-blur-sm border border-teal-500/30 px-4 py-2 rounded-2xl shadow-lg pointer-events-auto">
             <p className="text-[10px] text-teal-300 font-bold uppercase tracking-widest mb-0.5">Sesi Tanggungan</p>
             <h2 className="text-white font-black text-lg">Resit {multiCurrent} / {multiTotal}</h2>
           </div>
           <button 
             onClick={() => setShowCancelOptions(true)}
-            className="bg-red-500/20 text-red-100 hover:bg-red-500/40 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+            className="bg-red-500/20 text-red-100 hover:bg-red-500/40 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 pointer-events-auto"
           >
             Batal
           </button>

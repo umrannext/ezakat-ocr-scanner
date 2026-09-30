@@ -690,19 +690,6 @@ export function extractMuzakkiInfo(text: string): { totalMuzakki: number; depend
     }
   }
 
-  // 4. Semak mana-mana digit Arab-Indic / Roman tunggal yang wujud di kawasan bawah (baris-baris terakhir OCR)
-  const genericMatch = normalized.match(/(?:\b|:\s*)([0-9]{1,2})\s*$/m);
-  if (genericMatch && genericMatch[1]) {
-    const total = parseInt(genericMatch[1], 10);
-    if (total > 0 && total <= 30) {
-      return { 
-        totalMuzakki: total, 
-        dependents: Math.max(0, total - 1), 
-        source: `Nombor Tunggal (${genericMatch[1]} ➔ ${total} Orang)` 
-      };
-    }
-  }
-
   // 5. Lalai kepada 1 pembayar (tiada tanggungan)
   return { totalMuzakki: 1, dependents: 0, source: 'Lalai (1 Orang Muzakki)' };
 }

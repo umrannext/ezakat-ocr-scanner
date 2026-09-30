@@ -76,7 +76,7 @@ export default function LoginPage() {
                 type="text" 
                 value={loginId}
                 onChange={e => setLoginId(e.target.value)}
-                placeholder="Contoh: admin atau AMIL-Z01-001"
+                placeholder="Masukkan ID Pengguna"
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-slate-500 font-semibold focus:ring-2 focus:ring-teal-400 outline-none transition-all"
                 required
               />

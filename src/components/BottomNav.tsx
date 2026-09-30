@@ -87,7 +87,7 @@ export default function BottomNav({ userRole }: { userRole?: string | null }) {
         <span className="text-[10px] font-bold tracking-tight">Rekod</span>
       </Link>
 
-      {/* 5. SENARAI AMIL / PROFIL SAYA */}
+      {/* 5. TADBIR / PROFIL SAYA */}
       {(userRole === 'ADMIN' || userRole === 'STAFF') ? (
         <Link 
           href="/amils" 
@@ -97,7 +97,7 @@ export default function BottomNav({ userRole }: { userRole?: string | null }) {
         >
           <Users size={22} strokeWidth={pathname === '/amils' ? 2.5 : 2} className="drop-shadow-sm mb-1" />
           <span className="text-[10px] font-bold tracking-tight truncate max-w-full px-0.5">
-            {userRole === 'STAFF' ? 'Staf' : 'Senarai Amil'}
+            {userRole === 'STAFF' ? 'Staf' : 'Tadbir'}
           </span>
         </Link>
       ) : (
