@@ -112,6 +112,11 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
                   <span className="font-bold text-slate-800">{receipt.dependents + 1} Orang</span>
                 </div>
               )}
+              
+              <div className="flex justify-between items-center pt-2 mt-2 border-t border-slate-100 border-dashed">
+                <span className="text-sm font-bold text-slate-500">Jumlah Bayaran</span>
+                <span className="text-xl font-black text-slate-800">${receipt.totalAmount.toFixed(2)}</span>
+              </div>
             </div>
           </div>
           
@@ -137,12 +142,6 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
             </div>
           )}
           
-          <div className="p-6 relative bg-slate-800 text-white rounded-b-2xl print:bg-white print:text-black print:border-t-2 print:border-slate-800 print:rounded-none">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-slate-300 print:text-slate-500 uppercase tracking-widest">Jumlah Bayaran</span>
-                <span className="text-3xl font-black">${receipt.totalAmount.toFixed(2)}</span>
-              </div>
-            </div>
         </div>
 
         {/* PRINT SCRIPT */}

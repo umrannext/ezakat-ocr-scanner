@@ -61,8 +61,8 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
         }),
         prisma.receipt.aggregate({
           where: isNotAdmin ? { amilId: user.id } : {},
-          _sum: { totalAmount: true },
-          _count: { id: true }
+          _count: { id: true },
+          _sum: { totalAmount: true, dependents: true }
         }),
         !isNotAdmin ? prisma.receipt.groupBy({
           by: ['zakatType', 'riceTypeId', 'hartaSubtype'],
@@ -127,7 +127,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
 
       receipts = recentReceipts;
       totalAmount = stats._sum.totalAmount || 0;
-      totalReceipts = stats._count.id;
+      totalReceipts = stats._count.id + (stats._sum.dependents || 0);
     }
   } catch (err) {
     console.warn("Home page database notice:", err);

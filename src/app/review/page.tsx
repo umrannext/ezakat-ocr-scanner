@@ -392,8 +392,8 @@ export default function ReviewPage() {
         let depImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]');
         let depReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]');
         
-        if (payload.imageUrl) depImages.push(payload.imageUrl);
-        if (payload.receiptNumber) depReceipts.push(payload.receiptNumber);
+        if (payload.imageUrl) depImages[currentIdx - 1] = payload.imageUrl;
+        if (payload.receiptNumber) depReceipts[currentIdx - 1] = payload.receiptNumber;
         
         sessionStorage.setItem('multiDepImages', JSON.stringify(depImages));
         sessionStorage.setItem('multiDepReceipts', JSON.stringify(depReceipts));
@@ -407,8 +407,8 @@ export default function ReviewPage() {
         } else {
           // Tanggungan selesai, submit semua
           const basePayload = JSON.parse(sessionStorage.getItem('multiBasePayload') || '{}');
-          basePayload.dependentImages = depImages;
-          basePayload.dependentReceipts = depReceipts;
+          basePayload.dependentImages = depImages.filter(Boolean);
+          basePayload.dependentReceipts = depReceipts.filter(Boolean);
           basePayload.missingDependents = parseInt(sessionStorage.getItem('multiMissing') || '0');
           
           const res = await fetch('/api/receipts', {

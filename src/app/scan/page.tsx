@@ -350,8 +350,8 @@ export default function ScanPage() {
                 } else {
                   // Jika ini resit terakhir yang batal, simpan semua ke pangkalan data
                   const basePayload = JSON.parse(sessionStorage.getItem('multiBasePayload') || '{}');
-                  basePayload.dependentImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]');
-                  basePayload.dependentReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]');
+                  basePayload.dependentImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]').filter(Boolean);
+                  basePayload.dependentReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]').filter(Boolean);
                   basePayload.missingDependents = currentMissing + 1;
                   
                   try {
@@ -383,8 +383,8 @@ export default function ScanPage() {
               
               <button onClick={async () => {
                 const basePayload = JSON.parse(sessionStorage.getItem('multiBasePayload') || '{}');
-                basePayload.dependentImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]');
-                basePayload.dependentReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]');
+                basePayload.dependentImages = JSON.parse(sessionStorage.getItem('multiDepImages') || '[]').filter(Boolean);
+                basePayload.dependentReceipts = JSON.parse(sessionStorage.getItem('multiDepReceipts') || '[]').filter(Boolean);
                 basePayload.missingDependents = parseInt(sessionStorage.getItem('multiMissing') || '0');
                 
                 try {
