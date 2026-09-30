@@ -62,7 +62,7 @@ export async function uploadToOneDrive(path: string, buffer: Buffer | ArrayBuffe
       'Authorization': `Bearer ${token}`,
       'Content-Type': contentType
     },
-    body: buffer
+    body: buffer as any
   });
 
   if (!res.ok) {

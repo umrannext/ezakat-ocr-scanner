@@ -31,7 +31,7 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
   let receipts: any[] = [];
   let totalAmount = 0;
   let totalReceipts = 0;
-  let adminData = { totalFitrah: 0, totalHarta: 0, countFitrah: 0, countHarta: 0, zoneStats: [] as any[] };
+  let adminData: any = { totalFitrah: 0, totalHarta: 0, countFitrah: 0, countHarta: 0, zoneStats: [] as any[] };
   let recentReceipts: any[] = [];
 
   try {

@@ -18,7 +18,7 @@ export default function GlobalError({
       <body>
         <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
           <h2>Ralat Sistem Kritikal</h2>
-          <p style={{ color: 'red' }}>{error.message || "Unknown error"}</p>
+          <p style={{ color: 'red' }}>{(error as any).message || "Unknown error"}</p>
         </div>
       </body>
     </html>

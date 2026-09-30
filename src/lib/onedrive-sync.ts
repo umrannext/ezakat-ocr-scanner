@@ -67,7 +67,7 @@ export async function processOneDriveSync(
 
       const pdfBytes = await pdfDoc.save();
       const pdfPath = `Zakat-PDF/${receiptNumber}/${receiptNumber}-EResit.pdf`;
-      const pdfUploadRes = await uploadToOneDrive(pdfPath, pdfBytes.buffer, 'application/pdf');
+      const pdfUploadRes = await uploadToOneDrive(pdfPath, pdfBytes.buffer as any, 'application/pdf');
       pdfShareLink = await createSharingLink(pdfUploadRes.id);
     } catch (pdfErr) {
       console.warn("Gagal menjana PDF", pdfErr);
