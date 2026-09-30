@@ -1,15 +1,16 @@
 // Microsoft Graph API Helpers (Cloudflare Workers / Edge Compatible)
 // Menggunakan native fetch untuk sokongan penuh Edge Runtime (tanpa msal-node)
 
-const MS_TENANT_ID = process.env.MS_TENANT_ID || '';
-const MS_CLIENT_ID = process.env.MS_CLIENT_ID || '';
-const MS_CLIENT_SECRET = process.env.MS_CLIENT_SECRET || '';
 const UPN = 'ismail.jamil@jpi.edu.bn';
 
 let cachedToken = '';
 let tokenExpiry = 0;
 
 export async function getGraphToken(): Promise<string> {
+  const MS_TENANT_ID = process.env.MS_TENANT_ID || '';
+  const MS_CLIENT_ID = process.env.MS_CLIENT_ID || '';
+  const MS_CLIENT_SECRET = process.env.MS_CLIENT_SECRET || '';
+
   if (cachedToken && Date.now() < tokenExpiry) {
     return cachedToken;
   }

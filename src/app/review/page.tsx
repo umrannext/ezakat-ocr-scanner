@@ -309,7 +309,14 @@ export default function ReviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ icNumber: formData.icNumber })
       });
-      const data = await res.json();
+      
+      let data;
+      const textResponse = await res.text();
+      try {
+        data = JSON.parse(textResponse);
+      } catch (e) {
+        throw new Error(`Ralat pelayan ${res.status}`);
+      }
       
       if (data.success) {
         setFormData(prev => ({ 
@@ -409,7 +416,14 @@ export default function ReviewPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(basePayload)
           });
-          const data = await res.json();
+          
+          let data;
+          const textResponse = await res.text();
+          try {
+            data = JSON.parse(textResponse);
+          } catch (e) {
+            throw new Error(`Sistem pelayan Cloudflare mengembalikan ralat HTTP ${res.status}. Sila pastikan sambungan internet anda stabil atau hubungi pentadbir (mungkin payload terlalu besar).`);
+          }
           
           if (res.ok && data.success) {
             sessionStorage.removeItem('scannedImage');
@@ -436,7 +450,14 @@ export default function ReviewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      
+      let data;
+      const textResponse = await res.text();
+      try {
+        data = JSON.parse(textResponse);
+      } catch (e) {
+        throw new Error(`Sistem pelayan Cloudflare mengembalikan ralat HTTP ${res.status}. Sila pastikan sambungan internet anda stabil atau hubungi pentadbir (mungkin payload terlalu besar).`);
+      }
 
       if (res.ok && data.success) {
         sessionStorage.removeItem('scannedImage');

@@ -36,43 +36,6 @@ export async function processOneDriveSync(
       }
     }
 
-    // 3. Jana & Muat naik PDF (Simulasi asas susun atur E-Resit menggunakan pdf-lib)
-    let pdfShareLink = null;
-    try {
-      const pdfDoc = await PDFDocument.create();
-      const page = pdfDoc.addPage([600, 800]);
-      
-      // Tambah Teks Resit ke PDF
-      page.drawText(`E-RESIT PEMBAYARAN ZAKAT`, { x: 50, y: 750, size: 24, color: rgb(0, 0.4, 0.4) });
-      page.drawText(`No. Resit: ${receiptNumber}`, { x: 50, y: 720, size: 14 });
-      
-      // Muat Gambar Utama jika ada
-      if (base64MainImage) {
-        const imgBuffer = base64ToBuffer(base64MainImage);
-        let embeddedImage;
-        if (base64MainImage.includes('image/png')) {
-          embeddedImage = await pdfDoc.embedPng(imgBuffer);
-        } else {
-          embeddedImage = await pdfDoc.embedJpg(imgBuffer);
-        }
-        
-        const dims = embeddedImage.scale(0.5);
-        page.drawImage(embeddedImage, {
-          x: 50,
-          y: 680 - dims.height,
-          width: dims.width,
-          height: dims.height
-        });
-      }
-
-      const pdfBytes = await pdfDoc.save();
-      const pdfPath = `Zakat-PDF/${receiptNumber}/${receiptNumber}-EResit.pdf`;
-      const pdfUploadRes = await uploadToOneDrive(pdfPath, pdfBytes.buffer as any, 'application/pdf');
-      pdfShareLink = await createSharingLink(pdfUploadRes.id);
-    } catch (pdfErr) {
-      console.warn("Gagal menjana PDF", pdfErr);
-    }
-
     // 4. Kemas kini Supabase Database
     await prisma.receipt.update({
       where: { id: receiptId },
@@ -80,7 +43,7 @@ export async function processOneDriveSync(
         syncStatus: 'COMPLETED',
         imageShareLink: mainShareLink,
         dependentShareLinks: depShareLinks,
-        pdfShareLink: pdfShareLink,
+        pdfShareLink: null,
         // Boleh padam data base64 lama untuk jimat ruang DB
         imageUrl: null,
         dependentImages: []
