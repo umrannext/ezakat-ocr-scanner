@@ -74,9 +74,15 @@ model Receipt {
   groupId       String?  // Untuk satukan beberapa resit fitrah (tanggungan) dalam 1 e-resit
   remarks       String?  // Untuk nota "Resit tidak dijumpai", dll.
   
-  dependentImages String[] @default([]) // Array imej resit tanggungan (Base64)
+  dependentImages String[] @default([]) // Array imej resit tanggungan (Base64) - LAMA (akan dibuang lepas migrasi)
   dependentReceipts String[] @default([]) // Array nombor resit tanggungan
   missingDependents Int @default(0) // Bilangan resit tanggungan yang tidak dijumpai
+  
+  // MEDAN BAHARU UNTUK ONEDRIVE
+  syncStatus        String   @default("PENDING") // PENDING, COMPLETED, FAILED
+  imageShareLink    String?
+  pdfShareLink      String?
+  dependentShareLinks String[] @default([])
   
   paidAmount    Float    @default(0)
   

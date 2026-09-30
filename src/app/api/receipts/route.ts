@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { waitUntil } from '@vercel/functions';
+import { processOneDriveSync } from '@/lib/onedrive-sync';
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
@@ -176,7 +178,7 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    // 6. Cipta rekod resit tunggal
+    // 6. Cipta rekod resit tunggal (Hanya simpan metadata dan Base64 DIBUANG)
     const createdReceipt = await prisma.receipt.create({
         data: {
         receiptNumber: receiptNumber,
@@ -185,7 +187,6 @@ export async function POST(req: Request) {
         hartaSubtype: data.hartaSubtype || null,
         groupId: data.groupId || null,
         remarks: data.remarks || null,
-        dependentImages: data.dependentImages || [],
         dependentReceipts: data.dependentReceipts || [],
         missingDependents: data.missingDependents || 0,
         riceTypeId: validRiceTypeId,
@@ -194,12 +195,22 @@ export async function POST(req: Request) {
         isVerified: Boolean(data.isVerified),
         isWakalah: Boolean(data.isWakalah),
         paidAmount: parseFloat(safeTotalAmount.toFixed(2)),
-        imageUrl: safeImageUrl,
         dependents: safeDependents,
         paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
-        totalAmount: parseFloat(safeTotalAmount.toFixed(2))
+        totalAmount: parseFloat(safeTotalAmount.toFixed(2)),
+        syncStatus: 'PENDING'
       }
     });
+
+    // 7. Mulakan sinkronisasi OneDrive di latar belakang tanpa melengahkan respons!
+    waitUntil(
+      processOneDriveSync(
+        createdReceipt.id,
+        receiptNumber,
+        safeImageUrl,
+        data.dependentImages || []
+      )
+    );
 
     return NextResponse.json({ 
       success: true, 
