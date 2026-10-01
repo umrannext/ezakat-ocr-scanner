@@ -507,7 +507,16 @@ export default function ReviewPage() {
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col pb-[110px]">
       {/* Header Bar */}
       <div className="bg-white/80 backdrop-blur-md p-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-slate-200/50">
-        <button onClick={() => router.back()} className="text-slate-600 p-2 -ml-2 active:scale-90 transition-transform">
+        <button 
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.state?.idx > 0) {
+              router.back();
+            } else {
+              router.push('/scan');
+            }
+          }} 
+          className="text-slate-600 p-2 -ml-2 active:scale-90 transition-transform"
+        >
           <ArrowLeft size={24} />
         </button>
         <h1 className="font-bold text-slate-800 ml-2 tracking-tight">Semakan Maklumat Resit</h1>

@@ -548,7 +548,13 @@ export default function ScanPage() {
             <div className="mt-5 pt-3 border-t border-white/10 flex justify-between items-center">
               <button
                 type="button"
-                onClick={() => router.back()}
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.history.state?.idx > 0) {
+                    router.back();
+                  } else {
+                    router.push('/');
+                  }
+                }}
                 className="text-xs text-slate-400 hover:text-white font-medium transition-colors"
               >
                 ← Kembali
@@ -753,7 +759,13 @@ export default function ScanPage() {
           <div className="w-full p-4 pt-4 flex flex-col gap-3 z-20 bg-gradient-to-b from-black/90 via-black/50 to-transparent">
             <div className="flex justify-between items-center">
               <button 
-                onClick={() => router.back()} 
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.history.state?.idx > 0) {
+                    router.back();
+                  } else {
+                    router.push('/');
+                  }
+                }} 
                 className="text-white p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 active:scale-90 transition-all"
                 aria-label="Kembali"
               >
