@@ -114,22 +114,16 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
               )}
               
               {!isHarta && (receipt.dependents > 0 || receipt.dependentReceipts.length > 0) && (
-                <div className="pt-2 border-t border-slate-100 border-dashed space-y-1.5">
+                <div className="pt-2 border-t border-slate-100 border-dashed">
                   <div className="flex justify-between items-start">
-                    <span className="text-sm font-bold text-slate-500">No. Resit Tanggungan</span>
-                    <div className="text-right space-y-1">
+                    <span className="text-sm font-bold text-slate-500 whitespace-nowrap">No. Resit Tanggungan</span>
+                    <div className="text-right pl-2">
                       {receipt.dependentReceipts.length > 0 ? (
-                        receipt.dependentReceipts.map((depNum, idx) => {
-                          const totalDeps = receipt.dependents > 0 ? receipt.dependents : receipt.dependentReceipts.length;
-                          return (
-                            <div key={idx} className="flex items-center justify-end gap-1.5">
-                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                                Tanggungan {idx + 1}/{totalDeps}
-                              </span>
-                              <span className="font-mono font-bold text-xs text-slate-800">{depNum}</span>
-                            </div>
-                          );
-                        })
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono font-bold text-xs text-slate-800 text-right">
+                          {receipt.dependentReceipts.map((depNum, idx) => (
+                            <span key={idx} className="whitespace-nowrap">{depNum}</span>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-xs font-bold text-slate-400 italic">
                           {receipt.dependents} tanggungan diimbas
