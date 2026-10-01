@@ -113,6 +113,33 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
                 </div>
               )}
               
+              {!isHarta && (receipt.dependents > 0 || receipt.dependentReceipts.length > 0) && (
+                <div className="pt-2 border-t border-slate-100 border-dashed space-y-1.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-bold text-slate-500">No. Resit Tanggungan</span>
+                    <div className="text-right space-y-1">
+                      {receipt.dependentReceipts.length > 0 ? (
+                        receipt.dependentReceipts.map((depNum, idx) => {
+                          const totalDeps = receipt.dependents > 0 ? receipt.dependents : receipt.dependentReceipts.length;
+                          return (
+                            <div key={idx} className="flex items-center justify-end gap-1.5">
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                Tanggungan {idx + 1}/{totalDeps}
+                              </span>
+                              <span className="font-mono font-bold text-xs text-slate-800">{depNum}</span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <span className="text-xs font-bold text-slate-400 italic">
+                          {receipt.dependents} tanggungan diimbas
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex justify-between items-center pt-2 mt-2 border-t border-slate-100 border-dashed">
                 <span className="text-sm font-bold text-slate-500">Jumlah Bayaran</span>
                 <span className="text-xl font-black text-slate-800">${receipt.totalAmount.toFixed(2)}</span>

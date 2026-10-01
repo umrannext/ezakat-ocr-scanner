@@ -41,16 +41,19 @@ export default function ImageViewer({
           )}
           
           {/* Dependent Receipt Images */}
-          {dependentImages.map((img, idx) => (
-            <div key={`dep-${idx}`} className="relative">
-              <div className="text-[10px] font-black text-slate-400 mb-1 mt-4">
-                Resit Tanggungan {idx + 1} {dependentReceipts[idx] ? `(${dependentReceipts[idx]})` : ''}
+          {dependentImages.map((img, idx) => {
+            const totalDeps = dependentImages.length;
+            return (
+              <div key={`dep-${idx}`} className="relative">
+                <div className="text-[10px] font-black text-slate-400 mb-1 mt-4">
+                  Resit Tanggungan {idx + 1}/{totalDeps} {dependentReceipts[idx] ? `(${dependentReceipts[idx]})` : ''}
+                </div>
+                <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
+                  <img src={img} alt={`Resit Tanggungan ${idx + 1}/${totalDeps}`} className="w-full max-w-md h-auto object-contain mx-auto" loading="lazy" />
+                </div>
               </div>
-              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
-                <img src={img} alt={`Resit Tanggungan ${idx + 1}`} className="w-full max-w-md h-auto object-contain mx-auto" loading="lazy" />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       
@@ -68,16 +71,19 @@ export default function ImageViewer({
         )}
         
         {/* Dependent Receipt Images */}
-        {dependentImages.map((img, idx) => (
+        {dependentImages.map((img, idx) => {
+          const totalDeps = dependentImages.length;
+          return (
             <div key={`dep-print-${idx}`} className="relative">
-            <div className="text-[10px] font-black text-slate-400 mb-1 mt-4">
-                Resit Tanggungan {idx + 1} {dependentReceipts[idx] ? `(${dependentReceipts[idx]})` : ''}
+              <div className="text-[10px] font-black text-slate-400 mb-1 mt-4">
+                Resit Tanggungan {idx + 1}/{totalDeps} {dependentReceipts[idx] ? `(${dependentReceipts[idx]})` : ''}
+              </div>
+              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
+                <img src={img} alt={`Resit Tanggungan ${idx + 1}/${totalDeps}`} className="w-full max-w-md h-auto object-contain mx-auto" />
+              </div>
             </div>
-            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
-                <img src={img} alt={`Resit Tanggungan ${idx + 1}`} className="w-full max-w-md h-auto object-contain mx-auto" />
-            </div>
-            </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
