@@ -215,7 +215,8 @@ export async function POST(req: Request) {
         createdReceipt.id,
         receiptNumber,
         data.imageUrl || null,
-        data.dependentImages || []
+        data.dependentImages || [],
+        data.dependentReceipts || []
       );
     } catch (syncError) {
       console.error("Amaran: Gagal memuat naik ke SharePoint, tetapi resit tersimpan di DB:", syncError);

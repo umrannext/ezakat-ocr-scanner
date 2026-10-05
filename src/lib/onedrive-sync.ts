@@ -8,15 +8,24 @@ export async function processOneDriveSync(
   receiptId: string, 
   receiptNumber: string, 
   base64MainImage: string | null, 
-  base64DepImages: string[]
+  base64DepImages: string[],
+  dependentReceipts: string[] = []
 ) {
   try {
+    // Tentukan nama folder
+    // Jika ada tanggungan, format folder: CS 014008 - CS 014010
+    let folderName = receiptNumber;
+    if (dependentReceipts.length > 0) {
+      const lastDep = dependentReceipts[dependentReceipts.length - 1];
+      folderName = `${receiptNumber} - ${lastDep}`;
+    }
+
     // 1. Muat naik Imej Utama
     let mainShareLink = null;
     if (base64MainImage && base64MainImage.startsWith('data:image')) {
       const buffer = base64ToBuffer(base64MainImage);
       const ext = getExtension(base64MainImage);
-      const path = `Zakat-Images/${receiptNumber}/Utama-${receiptNumber}.${ext}`;
+      const path = `Zakat-Images/${folderName}/Utama-${receiptNumber}.${ext}`;
       const uploadRes = await uploadToOneDrive(path, buffer, getMimeType(ext));
       mainShareLink = await createSharingLink(uploadRes.id);
     }
@@ -28,7 +37,8 @@ export async function processOneDriveSync(
       if (b64 && b64.startsWith('data:image')) {
         const buffer = base64ToBuffer(b64);
         const ext = getExtension(b64);
-        const path = `Zakat-Images/${receiptNumber}/Tanggungan-${i+1}.${ext}`;
+        const depNum = dependentReceipts[i] || `T${i+1}`;
+        const path = `Zakat-Images/${folderName}/Tanggungan-${depNum}.${ext}`;
         const uploadRes = await uploadToOneDrive(path, buffer, getMimeType(ext));
         const link = await createSharingLink(uploadRes.id);
         depShareLinks.push(link);
