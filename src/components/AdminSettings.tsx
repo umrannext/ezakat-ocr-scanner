@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Plus, Edit2, Loader2, Save, X, Coins, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Settings, RefreshCw, Plus, Edit2, Loader2, Save, X, Coins, Sparkles, CheckCircle2, Cloud, AlertTriangle } from 'lucide-react';
 
 const FALLBACK_RATES = [
   { id: 'fb-1', name: 'Beras Siam', price: 1.93, activeYear: '1447H', code: 'B_SIAM_1447H' },
@@ -23,6 +23,25 @@ export default function AdminSettings() {
   const [goldSavedMsg, setGoldSavedMsg] = useState(false);
   const [isSyncingGold, setIsSyncingGold] = useState(false);
   const [goldSyncMsg, setGoldSyncMsg] = useState<string | null>(null);
+
+  const [isTestingSharePoint, setIsTestingSharePoint] = useState(false);
+  const [sharePointResult, setSharePointResult] = useState<{ success: boolean; message?: string; error?: string; details?: any } | null>(null);
+
+  const handleTestSharePoint = async () => {
+    setIsTestingSharePoint(true);
+    setSharePointResult(null);
+    try {
+      const res = await fetch('/api/settings/test-sharepoint', { method: 'POST' });
+      const data = await res.json();
+      setSharePointResult(data);
+    } catch (e: any) {
+      setSharePointResult({
+        success: false,
+        error: 'Ralat semasa menghubungi pelayan pengesahan Cloudflare.'
+      });
+    }
+    setIsTestingSharePoint(false);
+  };
 
   const fetchRates = async () => {
     setIsLoading(true);
@@ -376,6 +395,64 @@ export default function AdminSettings() {
             Simpan Harga Perak
           </button>
         </div>
+      </div>
+
+      {/* 4. SEKSYEN INTEGRASI SHAREPOINT SITE & MICROSOFT GRAPH */}
+      <div className="bg-gradient-to-br from-blue-900/10 via-blue-50 to-indigo-50 p-6 rounded-3xl border border-blue-200/80 shadow-sm mt-8 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 p-2.5 rounded-xl text-white shadow-xs">
+              <Cloud size={22} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-blue-950 leading-tight">Pengesahan Sambungan SharePoint &amp; Microsoft Graph</h3>
+              <p className="text-xs text-blue-800/80 font-medium mt-0.5">
+                Menguji kunci Entra ID App &quot;Zakat OCR Scanner&quot; dan kebenaran storan SharePoint Site / Document Library.
+              </p>
+            </div>
+          </div>
+
+          <button 
+            type="button"
+            onClick={handleTestSharePoint}
+            disabled={isTestingSharePoint}
+            className="flex items-center justify-center gap-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2.5 rounded-xl transition-all active:scale-95 shadow-md shadow-blue-600/20 cursor-pointer disabled:opacity-60 shrink-0"
+          >
+            {isTestingSharePoint ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            <span>{isTestingSharePoint ? 'Menguji Sambungan...' : 'Uji Sambungan SharePoint'}</span>
+          </button>
+        </div>
+
+        {sharePointResult && (
+          <div className={`mt-4 p-4 rounded-2xl border text-xs font-medium animate-in fade-in ${sharePointResult.success ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-rose-50 border-rose-300 text-rose-900'}`}>
+            <div className="flex items-start gap-2.5">
+              {sharePointResult.success ? (
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1 space-y-1">
+                <p className="font-extrabold text-sm">
+                  {sharePointResult.success ? sharePointResult.message : 'Sambungan SharePoint / Microsoft Graph Gagal'}
+                </p>
+                {sharePointResult.error && (
+                  <div className="text-rose-800 bg-rose-100/80 p-2.5 rounded-xl font-mono text-[11px] leading-relaxed break-all mt-1">
+                    {sharePointResult.error}
+                  </div>
+                )}
+                {sharePointResult.details && (
+                  <div className="mt-2 pt-2 border-t border-emerald-200/80 text-[11px] space-y-1">
+                    <p><span className="font-bold">Jenis Storan Sasaran:</span> {sharePointResult.details.targetDesc}</p>
+                    <p><span className="font-bold">Nama Drive/Site:</span> {sharePointResult.details.name}</p>
+                    {sharePointResult.details.webUrl && (
+                      <p className="truncate"><span className="font-bold">Pautan SharePoint:</span> <a href={sharePointResult.details.webUrl} target="_blank" rel="noopener noreferrer" className="underline font-mono text-blue-700">{sharePointResult.details.webUrl}</a></p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>
