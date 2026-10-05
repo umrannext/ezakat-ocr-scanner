@@ -60,9 +60,9 @@ export async function processOneDriveSync(
 // Helpers
 function base64ToBuffer(base64: string): ArrayBuffer {
   const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
-  const binaryString = atob(base64Data);
-  const bytes = Uint8Array.from(binaryString, (m) => m.codePointAt(0)!);
-  return bytes.buffer;
+  // Guna Buffer yang lebih pantas dan stabil berbanding atob() untuk string gergasi
+  const buffer = Buffer.from(base64Data, 'base64');
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 }
 
 function getExtension(base64: string): string {

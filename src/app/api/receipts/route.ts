@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { waitUntil } from '@vercel/functions';
 import { processOneDriveSync } from '@/lib/onedrive-sync';
 import { cookies } from 'next/headers';
 
@@ -162,7 +161,12 @@ export async function POST(req: Request) {
     }
 
     const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
-    const safeImageUrl = (data.imageUrl && typeof data.imageUrl === 'string' && data.imageUrl.length < 150000) ? data.imageUrl : null;
+    // Untuk PostgreSQL (Neon), kita elakkan simpan base64 yang terlampau besar supaya tidak berlaku HTTP 500
+    const dbSafeImageUrl = (data.imageUrl && typeof data.imageUrl === 'string' && data.imageUrl.length < 150000) ? data.imageUrl : null;
+    const dbSafeDependentImages = Array.isArray(data.dependentImages) 
+      ? data.dependentImages.filter((img: any) => typeof img === 'string' && img.length < 150000) 
+      : [];
+
     const safeTotalAmount = isNaN(totalAmount) ? 0 : totalAmount;
     const safeDependents = isNaN(dependents) ? 0 : dependents;
 
@@ -199,20 +203,25 @@ export async function POST(req: Request) {
         paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
         totalAmount: parseFloat(safeTotalAmount.toFixed(2)),
         syncStatus: 'PENDING',
-        imageUrl: safeImageUrl,
-        dependentImages: data.dependentImages || []
+        imageUrl: dbSafeImageUrl,
+        dependentImages: dbSafeDependentImages
       }
     });
 
-    // 7. Mulakan sinkronisasi OneDrive di latar belakang tanpa melengahkan respons!
-    waitUntil(
-      processOneDriveSync(
+    // 7. Muat naik ke SharePoint secara langsung. Await digunakan supaya 
+    // ralat dapat ditangkap dan pengguna nampak jika gagal dimuat naik.
+    try {
+      await processOneDriveSync(
         createdReceipt.id,
         receiptNumber,
-        safeImageUrl,
+        data.imageUrl || null,
         data.dependentImages || []
-      )
-    );
+      );
+    } catch (syncError) {
+      console.error("Amaran: Gagal memuat naik ke SharePoint, tetapi resit tersimpan di DB:", syncError);
+      // Kita tidak mahu menggagalkan keseluruhan simpanan jika hanya upload gagal,
+      // tetapi sekurang-kurangnya ia dicatatkan di server.
+    }
 
     return NextResponse.json({ 
       success: true, 

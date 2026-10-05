@@ -93,24 +93,35 @@ export const prisma = new Proxy({} as PrismaClient, {
           const modelVal = modelTarget[modelProp];
           if (typeof modelVal === 'function') {
             return async (...args: any[]) => {
-              try {
-                return await modelVal.apply(modelTarget, args);
-              } catch (err: any) {
-                if (isConnectionError(err)) {
-                  console.warn('DB connection glitch detected. Auto-reconnecting...', err?.message);
-                  client = null;
-                  if (currentPool) {
-                    try { await currentPool.end(); } catch (_) {}
-                    currentPool = null;
+              let lastErr: any;
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                  if (attempt === 1) {
+                    return await modelVal.apply(modelTarget, args);
+                  } else {
+                    const freshInstance = getClient();
+                    const freshModel = (freshInstance as any)[prop];
+                    return await freshModel[modelProp](...args);
                   }
-                  // Beri ruang 200ms untuk slot pool Supabase dilepaskan
-                  await new Promise(r => setTimeout(r, 200));
-                  const freshInstance = getClient();
-                  const freshModel = (freshInstance as any)[prop];
-                  return await freshModel[modelProp](...args);
+                } catch (err: any) {
+                  lastErr = err;
+                  if (isConnectionError(err)) {
+                    console.warn(`[Prc] DB connection glitch on attempt ${attempt}. Auto-reconnecting...`, err?.message);
+                    client = null;
+                    if (currentPool) {
+                      try { await currentPool.end(); } catch (_) {}
+                      currentPool = null;
+                    }
+                    if (attempt < 3) {
+                      // Exponential backoff: 500ms, 1000ms for Neon cold starts
+                      await new Promise(r => setTimeout(r, attempt * 500));
+                      continue;
+                    }
+                  }
+                  throw err; // Lempar jika bukan error connection atau dah lebih 3 kali
                 }
-                throw err;
               }
+              throw lastErr;
             };
           }
           return modelVal;
