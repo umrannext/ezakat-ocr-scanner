@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ExternalLink } from 'lucide-react';
 
 export default function ImageViewer({ 
   mainImage, 
@@ -15,6 +15,31 @@ export default function ImageViewer({
   dependentReceipts: string[]
 }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const renderContent = (src: string, title: string) => {
+    if (src.startsWith('http')) {
+      return (
+        <a 
+          href={src} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex flex-col items-center justify-center p-6 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors group"
+        >
+          <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <ExternalLink size={24} />
+          </div>
+          <span className="font-bold text-slate-700 text-sm">Buka Fail di SharePoint</span>
+          <span className="text-xs text-slate-400 mt-1">{title}</span>
+        </a>
+      );
+    }
+    
+    return (
+      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
+        <img src={src} alt={title} className="w-full max-w-md h-auto object-contain mx-auto" loading="lazy" />
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -34,9 +59,7 @@ export default function ImageViewer({
               {(dependentImages.length > 0) && (
                 <div className="text-[10px] font-black text-slate-400 mb-1">Resit Utama ({receiptNumber})</div>
               )}
-              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
-                <img src={mainImage} alt="Resit Utama" className="w-full max-w-md h-auto object-contain mx-auto" loading="lazy" />
-              </div>
+              {renderContent(mainImage, "Resit Utama")}
             </div>
           )}
           
@@ -46,36 +69,28 @@ export default function ImageViewer({
               <div className="text-[10px] font-black text-slate-400 mb-1 mt-4">
                 Resit Tanggungan {idx + 1} {dependentReceipts[idx] ? `(${dependentReceipts[idx]})` : ''}
               </div>
-              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
-                <img src={img} alt={`Resit Tanggungan ${idx + 1}`} className="w-full max-w-md h-auto object-contain mx-auto" loading="lazy" />
-              </div>
+              {renderContent(img, `Resit Tanggungan ${idx + 1}`)}
             </div>
           ))}
         </div>
       )}
       
       <div className="hidden print:block space-y-6 mt-4">
-        {/* Main Receipt Image */}
         {mainImage && (
             <div className="relative">
             {(dependentImages.length > 0) && (
                 <div className="text-[10px] font-black text-slate-400 mb-1">Resit Utama ({receiptNumber})</div>
             )}
-            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
-                <img src={mainImage} alt="Resit Utama" className="w-full max-w-md h-auto object-contain mx-auto" />
-            </div>
+            {renderContent(mainImage, "Resit Utama")}
             </div>
         )}
         
-        {/* Dependent Receipt Images */}
         {dependentImages.map((img, idx) => (
           <div key={`dep-print-${idx}`} className="relative">
             <div className="text-[10px] font-black text-slate-400 mb-1 mt-4">
               Resit Tanggungan {idx + 1} {dependentReceipts[idx] ? `(${dependentReceipts[idx]})` : ''}
             </div>
-            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 inline-block shadow-xs">
-              <img src={img} alt={`Resit Tanggungan ${idx + 1}`} className="w-full max-w-md h-auto object-contain mx-auto" />
-            </div>
+            {renderContent(img, `Resit Tanggungan ${idx + 1}`)}
           </div>
         ))}
       </div>
