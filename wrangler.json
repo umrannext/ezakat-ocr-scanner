@@ -7,8 +7,8 @@
     "nodejs_compat"
   ],
   "vars": {
-    "MS_CLIENT_ID": "9720677c-41e1-4882-9a9b-ed1262dd8f06",
-    "MS_TENANT_ID": "47020947-65c5-427e-be88-fdc455f97b89"
+    "SHAREPOINT_SITE_ID": "jpibrunei.sharepoint.com,1fa0ce81-c3af-4f98-b753-15fa5834c4e7,1ea40027-da4f-4631-9baf-8ee311adc519",
+    "SHAREPOINT_DRIVE_ID": "b!gc6gH6_DmE-3UxX6WDTE5ycApB5P2jFGm6-O4xGtxRl6_McPzCoeS7A2m-3joIjh"
   },
   "hyperdrive": [
     {
