@@ -3,6 +3,10 @@ main = ".open-next/worker.js"
 compatibility_date = "2026-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+MS_CLIENT_ID = "9720677c-41e1-4882-9a9b-ed1262dd8f06"
+MS_TENANT_ID = "47020947-65c5-427e-be88-fdc455f97b89"
+
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "38fc8e5584b94006a34b07549d2287b9"
