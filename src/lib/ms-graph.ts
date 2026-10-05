@@ -32,22 +32,30 @@ export async function getGraphToken(): Promise<string> {
     grant_type: 'client_credentials'
   });
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString()
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 saat timeout
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Gagal mendapatkan token MS Graph dari Entra ID: ${errorText}`);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Gagal mendapatkan token MS Graph dari Entra ID (HTTP ${res.status}): ${errorText}`);
+    }
+
+    const data = await res.json();
+    cachedToken = data.access_token;
+    tokenExpiry = Date.now() + ((data.expires_in - 300) * 1000); // Buffer 5 minit
+    
+    return cachedToken;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = await res.json();
-  cachedToken = data.access_token;
-  tokenExpiry = Date.now() + ((data.expires_in - 300) * 1000); // Buffer 5 minit
-  
-  return cachedToken;
 }
 
 function getDriveBaseEndpoint(): string {
@@ -67,21 +75,29 @@ export async function uploadToOneDrive(path: string, buffer: Buffer | ArrayBuffe
   const baseEndpoint = getDriveBaseEndpoint();
   const url = `${baseEndpoint}/root:/${path}:/content`;
   
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': contentType
-    },
-    body: buffer as any
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 saat timeout
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Gagal memuat naik fail ke SharePoint Document Library: ${errorText}`);
+  try {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': contentType
+      },
+      body: buffer as any,
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Gagal memuat naik fail ke SharePoint Document Library (HTTP ${res.status}): ${errorText}`);
+    }
+
+    return res.json();
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return res.json(); // Mengembalikan data fail (termasuk id dan webUrl)
 }
 
 /**
@@ -94,35 +110,51 @@ export async function createSharingLink(itemId: string): Promise<string> {
   const baseEndpoint = getDriveBaseEndpoint();
   const url = `${baseEndpoint}/items/${itemId}/createLink`;
   
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      type: "view",
-      scope: "organization"
-    })
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 saat timeout
 
-  if (!res.ok) {
-    // Direct fallback: dapatkan terus webUrl asal dari item SharePoint
-    const itemUrl = `${baseEndpoint}/items/${itemId}`;
-    const itemRes = await fetch(itemUrl, {
-      headers: { 'Authorization': `Bearer ${token}` }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: "view",
+        scope: "organization"
+      }),
+      signal: controller.signal
     });
-    if (itemRes.ok) {
-      const itemData = await itemRes.json();
-      if (itemData.webUrl) return itemData.webUrl;
+
+    if (!res.ok) {
+      // Direct fallback: dapatkan terus webUrl asal dari item SharePoint
+      const itemUrl = `${baseEndpoint}/items/${itemId}`;
+      const itemController = new AbortController();
+      const itemTimeoutId = setTimeout(() => itemController.abort(), 10000);
+      
+      try {
+        const itemRes = await fetch(itemUrl, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: itemController.signal
+        });
+        if (itemRes.ok) {
+          const itemData = await itemRes.json();
+          if (itemData.webUrl) return itemData.webUrl;
+        }
+      } finally {
+        clearTimeout(itemTimeoutId);
+      }
+
+      const errorText = await res.text();
+      throw new Error(`Gagal mencipta link perkongsian SharePoint (HTTP ${res.status}): ${errorText}`);
     }
 
-    const errorText = await res.text();
-    throw new Error(`Gagal mencipta link perkongsian SharePoint: ${errorText}`);
+    const data = await res.json();
+    return data.link?.webUrl || data.webUrl;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = await res.json();
-  return data.link?.webUrl || data.webUrl;
 }
 
 /**

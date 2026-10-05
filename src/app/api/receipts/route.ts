@@ -208,21 +208,17 @@ export async function POST(req: Request) {
       }
     });
 
-    // 7. Muat naik ke SharePoint secara langsung. Await digunakan supaya 
-    // ralat dapat ditangkap dan pengguna nampak jika gagal dimuat naik.
-    try {
-      await processOneDriveSync(
-        createdReceipt.id,
-        receiptNumber,
-        data.imageUrl || null,
-        data.dependentImages || [],
-        data.dependentReceipts || []
-      );
-    } catch (syncError) {
+    // 7. Muat naik ke SharePoint dalam latar belakang (NON-BLOCKING)
+    // Tidak perlu await — resit sudah disimpan, upload akan berlaku secara async
+    processOneDriveSync(
+      createdReceipt.id,
+      receiptNumber,
+      data.imageUrl || null,
+      data.dependentImages || [],
+      data.dependentReceipts || []
+    ).catch(syncError => {
       console.error("Amaran: Gagal memuat naik ke SharePoint, tetapi resit tersimpan di DB:", syncError);
-      // Kita tidak mahu menggagalkan keseluruhan simpanan jika hanya upload gagal,
-      // tetapi sekurang-kurangnya ia dicatatkan di server.
-    }
+    });
 
     return NextResponse.json({ 
       success: true, 

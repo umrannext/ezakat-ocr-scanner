@@ -84,8 +84,13 @@ export async function POST(req: Request) {
     return response;
   } catch (error: any) {
     console.error('Auth server error:', error);
+    const errorMsg = error?.message || 'Ralat sambungan pangkalan data';
+    const userMsg = errorMsg.includes('connection') || errorMsg.includes('timeout') 
+      ? 'Sambungan pangkalan data tidak stabil. Sila cuba lagi dalam beberapa saat.'
+      : 'Ralat sambungan pangkalan data';
+    
     return NextResponse.json({ 
-      error: 'Ralat sambungan pangkalan data', 
+      error: userMsg,
       details: error?.message || 'Sila cuba sebentar lagi'
     }, { status: 500 });
   }
