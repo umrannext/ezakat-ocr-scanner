@@ -1,4 +1,5 @@
 "use client";
+import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, Search, SlidersHorizontal, Edit2, Trash2, 
@@ -342,14 +343,13 @@ export default function HistoryClient({
                     </button>
                   ) : null}
                   
-                  <a 
+                  <Link 
                     href={`/receipt/${receipt.id}`}
-                    target="_blank"
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-teal-50/80 hover:bg-teal-100 text-teal-700 font-bold active:scale-95 transition-all"
                   >
                     <FileText size={13} className="text-teal-600" />
                     <span>E-Resit</span>
-                  </a>
+                  </Link>
                 </div>
 
                 <div className="flex gap-1.5">
