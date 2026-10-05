@@ -152,6 +152,7 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
                   dependentImages={receipt.dependentShareLinks.length > 0 ? receipt.dependentShareLinks : receipt.dependentImages} 
                   receiptNumber={receipt.receiptNumber} 
                   dependentReceipts={receipt.dependentReceipts} 
+                  userRole={(await cookies()).get('auth_role')?.value || 'AMIL'}
                 />
                 
                 {/* Missing Dependents Info */}

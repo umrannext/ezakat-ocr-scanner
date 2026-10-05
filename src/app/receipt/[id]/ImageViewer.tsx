@@ -6,13 +6,22 @@ export default function ImageViewer({
   mainImage, 
   dependentImages, 
   receiptNumber, 
-  dependentReceipts 
+  dependentReceipts,
+  userRole = 'AMIL'
 }: { 
   mainImage: string | null, 
   dependentImages: string[], 
   receiptNumber: string,
-  dependentReceipts: string[]
+  dependentReceipts: string[],
+  userRole?: string
 }) {
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (userRole !== 'ADMIN') {
+      e.preventDefault();
+      alert('Hanya ADMIN pusat sahaja yang mempunyai akses untuk membuka dan melihat salinan resit asal ini di SharePoint.');
+    }
+  };
 
   const renderContent = (src: string, title: string) => {
     if (src.startsWith('http')) {
@@ -22,6 +31,7 @@ export default function ImageViewer({
           href={src} 
           target="_blank" 
           rel="noopener noreferrer"
+          onClick={handleLinkClick}
           className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-teal-300 hover:bg-teal-50 transition-all group print:hidden"
         >
           <div className="flex items-center gap-3 overflow-hidden">
