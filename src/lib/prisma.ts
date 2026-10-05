@@ -109,7 +109,9 @@ export const prisma = new Proxy({} as PrismaClient, {
                     console.warn(`[Prc] DB connection glitch on attempt ${attempt}. Auto-reconnecting...`, err?.message);
                     client = null;
                     if (currentPool) {
-                      try { await currentPool.end(); } catch (_) {}
+                      // Jangan await currentPool.end() kerana ia boleh hang (tersangkut) 
+                      // jika network digugurkan, menyebabkan Cloudflare Worker timeout (Error 1101/500).
+                      currentPool.end().catch(() => {});
                       currentPool = null;
                     }
                     if (attempt < 3) {

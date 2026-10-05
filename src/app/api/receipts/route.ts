@@ -208,17 +208,20 @@ export async function POST(req: Request) {
       }
     });
 
-    // 7. Muat naik ke SharePoint dalam latar belakang (NON-BLOCKING)
-    // Tidak perlu await — resit sudah disimpan, upload akan berlaku secara async
-    processOneDriveSync(
-      createdReceipt.id,
-      receiptNumber,
-      data.imageUrl || null,
-      data.dependentImages || [],
-      data.dependentReceipts || []
-    ).catch(syncError => {
+    // 7. Muat naik ke SharePoint secara langsung (Mesti AWAIT)
+    // Di Cloudflare Workers, proses yang tidak di-await akan dibunuh serta-merta 
+    // selepas response dihantar. Jadi kita perlu tunggu.
+    try {
+      await processOneDriveSync(
+        createdReceipt.id,
+        receiptNumber,
+        data.imageUrl || null,
+        data.dependentImages || [],
+        data.dependentReceipts || []
+      );
+    } catch (syncError) {
       console.error("Amaran: Gagal memuat naik ke SharePoint, tetapi resit tersimpan di DB:", syncError);
-    });
+    }
 
     return NextResponse.json({ 
       success: true, 
