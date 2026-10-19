@@ -1,81 +1,47 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { cookies } from 'next/headers';
+import { getReceiptById, updateReceipt, deleteReceipt } from '@/lib/sharepoint-db';
 
+export const dynamic = 'force-dynamic';
 
-
-const isAdmin = async () => {
-  const amilId = (await cookies()).get('auth_token')?.value;
-  if (!amilId) return false;
-  const user = await prisma.user.findUnique({ where: { id: amilId } });
-  return user?.role === 'ADMIN';
-};
-
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  let amilId = (await cookies()).get('auth_token')?.value;
-  if (!amilId) {
-    const cookieHeader = req.headers.get('cookie') || '';
-    const match = cookieHeader.match(/auth_token=([^;]+)/);
-    if (match) amilId = match[1];
-  }
-  if (!amilId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  
+export async function GET(
+  req: Request, 
+  props: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params;
-    
-    const user = await prisma.user.findUnique({ where: { id: amilId } });
-    const receipt = await prisma.receipt.findUnique({ where: { id } });
-    
-    if (!receipt) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    
-    if (user?.role !== 'ADMIN' && user?.role !== 'STAFF' && receipt.amilId !== amilId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const params = await props.params;
+    const receipt = await getReceiptById(params.id);
+    if (!receipt) {
+      return NextResponse.json({ success: false, error: 'Resit tidak dijumpai' }, { status: 404 });
     }
-    
-    await prisma.receipt.delete({ where: { id } });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Gagal memadam rekod' }, { status: 500 });
+    return NextResponse.json({ success: true, data: receipt });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
   }
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  let amilId = (await cookies()).get('auth_token')?.value;
-  if (!amilId) {
-    const cookieHeader = req.headers.get('cookie') || '';
-    const match = cookieHeader.match(/auth_token=([^;]+)/);
-    if (match) amilId = match[1];
-  }
-  if (!amilId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  
+export async function PUT(
+  req: Request, 
+  props: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = await params;
-    
-    const user = await prisma.user.findUnique({ where: { id: amilId } });
-    const receipt = await prisma.receipt.findUnique({ where: { id } });
-    
-    if (!receipt) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    
-    if (user?.role !== 'ADMIN' && user?.role !== 'STAFF' && receipt.amilId !== amilId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const data = await req.json();
-    const updated = await prisma.receipt.update({
-      where: { id },
-      data: {
-        payerName: data.payerName,
-        receiptNumber: data.receiptNumber,
-        dependents: data.dependents,
-        totalAmount: data.totalAmount
-      },
-      include: { riceType: true }
-    });
-    return NextResponse.json({ success: true, data: updated });
+    const params = await props.params;
+    const body = await req.json();
+    await updateReceipt(params.id, body);
+    return NextResponse.json({ success: true });
   } catch (error: any) {
-    if (error.code === 'P2002') {
-      return NextResponse.json({ error: 'Nombor resit ini telah wujud dalam pangkalan data.' }, { status: 400 });
-    }
-    return NextResponse.json({ error: error.message || 'Gagal mengemaskini rekod' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: Request, 
+  props: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await props.params;
+    await deleteReceipt(params.id);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
   }
 }

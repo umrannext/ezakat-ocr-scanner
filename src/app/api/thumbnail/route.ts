@@ -13,27 +13,20 @@ export async function GET(req: Request) {
     }
 
     // Convert Sharing URL to Graph API Share ID
-    // Format: base64 encode the URL, replace '+' with '-', '/' with '_', and remove '=' padding. Prefix with 'u!'.
     const base64Value = Buffer.from(link).toString('base64');
     const encodedUrl = base64Value.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const shareId = `u!${encodedUrl}`;
 
     const token = await getGraphToken();
-    
-    // Fetch the small thumbnail from Microsoft Graph
-    // 0 is the default thumbnail set, small is a pre-defined size
     const graphUrl = `https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/thumbnails/0/small/content`;
 
     const res = await fetch(graphUrl, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      // Redirects must be followed because Graph API returns a 302 redirect to the actual image CDN URL
+      headers: { 'Authorization': `Bearer ${token}` },
       redirect: 'follow'
     });
 
     if (!res.ok) {
-      // Fallback: If thumbnail generation fails, try fetching the raw content directly
+      // Fallback: cuba dapatkan fail asal terus
       const contentUrl = `https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/content`;
       const fallbackRes = await fetch(contentUrl, {
         headers: { 'Authorization': `Bearer ${token}` },
@@ -49,7 +42,7 @@ export async function GET(req: Request) {
       
       const response = new NextResponse(imageBuffer);
       response.headers.set('Content-Type', contentType);
-      response.headers.set('Cache-Control', 'public, max-age=86400'); // Cache 1 day
+      response.headers.set('Cache-Control', 'public, max-age=86400');
       return response;
     }
 
@@ -58,12 +51,10 @@ export async function GET(req: Request) {
 
     const response = new NextResponse(imageBuffer);
     response.headers.set('Content-Type', contentType);
-    // Cache heavily since thumbnails don't change
     response.headers.set('Cache-Control', 'public, max-age=86400');
     return response;
-
   } catch (error) {
-    console.error('Thumbnail proxy error:', error);
+    console.warn('Thumbnail proxy notice:', error);
     return new NextResponse('Failed to load image', { status: 500 });
   }
 }

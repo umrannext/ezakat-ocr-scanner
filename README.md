@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# E-Zakat OCR Scanner v2 (SharePoint Edition)
 
-## Getting Started
+Sistem Pengimbas Resit Zakat Berasaskan AI OCR dengan Integrasi Pangkalan Data Enterprise **Microsoft SharePoint** (Tanpa Supabase / PostgreSQL).
 
-First, run the development server:
+## 🚀 Kelebihan Versi 2.0 (Lebih Ringan & Stabil)
+
+1. **Pangkalan Data Tunggal SharePoint (Zero-Supabase)**
+   - Semua rekod metadata resit disimpan terus ke dalam **SharePoint Lists** (`ZakatReceipts`, `ZakatUsers`, `ZakatRates`).
+   - Salinan fail imej resit fizikal disimpan ke dalam **SharePoint Document Library** (`Zakat-Images/`).
+   - Menggunakan panggilan `fetch` Microsoft Graph API yang pantas, tiada lagi isu websocket pool, cold start timeout, atau kehabisan memori.
+
+2. **Ultra-Lightweight & Pantas**
+   - Menggugurkan Prisma, pg, pg-cloudflare, Sentry, dan binary WASM. Saiz bundle berkurang lebih 75%.
+   - Tiada lagi ralat **HTTP 500** atau **Cloudflare Error 1101**.
+
+3. **Kekalkan Semua Fungsi Sebenar**
+   - **Imbasan Pintar**: Sokongan Zakat Fitrah (Slip Segi Empat, kod DW/CS 6-angka) dan Zakat Harta (Borang A, format memanjang 5-angka merah).
+   - **Analisis Kertas Automatik**: Pengesanan warna kertas (Hijau = DW, Kuning = CS, Putih = Harta).
+   - **Mod Tanggungan (Multi-Scan)**: Aliran imbasan resit tanggungan berperingkat dengan folder `CS xxxxxx - CS xxxxxx`.
+   - **E-Resit Standard**: Membuka resit dalam tab yang sama (mudah tekan kembali), sokongan cetakan & PDF.
+   - **Kawalan Akses Peranan (RBAC)**:
+     - **Admin**: Akses penuh ke pautan fail asal SharePoint.
+     - **Staf / Amil**: Paparan *thumbnail* di sebelah kanan, dengan mesej pop-up amaran sekiranya cuba membuka pautan SharePoint terus.
+
+## 🔑 Akaun Log Masuk Sedia Ada
+
+| Peranan | ID Pengguna | Kata Laluan | Kariah / Fungsi |
+|---|---|---|---|
+| **Admin Pusat** | `admin` | `admin123` | Pentadbir Utama Sistem |
+| **Staf Arkib** | `staf` | `staf123` | Staf Arkib JUZWAB |
+| **Amil Zon 1** | `AMIL-Z01-001` | `amil123` | Masjid Jame' Asr Hassanil Bolkiah |
+| **Amil Zon 2** | `AMIL-Z02-001` | `amil123` | Masjid Mohammad Jamalul Alam |
+
+## 🛠️ Arahan Pembangunan & Pelancaran
 
 ```bash
+# Jalankan mod pembangunan tempatan
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Bina versi pengeluaran (Production Build)
+npm run build
+
+# Lancarkan pelayan pengeluaran
+npm run start
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

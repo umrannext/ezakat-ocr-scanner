@@ -46,17 +46,14 @@ export default function BottomNav({ userRole }: { userRole?: string | null }) {
         </Link>
       )}
 
-      {/* 3. IMBAS (CENTER FLOATING BUTTON - SIMETRI & SEIMBANG) */}
+      {/* 3. IMBAS (CENTER FLOATING BUTTON) */}
       <Link 
         href="/scan" 
         className="flex flex-col items-center justify-end h-13 pb-0.5 group relative"
       >
-        {/* Butang Bulat Terapung Tepat di Tengah */}
         <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
-          {/* Efek Glow Lembut */}
           <div className="absolute inset-0 bg-teal-500/25 rounded-full blur-xl scale-125 group-hover:bg-teal-500/40 transition-all duration-300"></div>
 
-          {/* Bulatan Ikon Berpusat Sempurna */}
           <div 
             className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl border-4 border-white transition-all duration-300 active:scale-90 relative z-10 pointer-events-auto ${
               pathname === '/scan' 
@@ -68,7 +65,6 @@ export default function BottomNav({ userRole }: { userRole?: string | null }) {
           </div>
         </div>
 
-        {/* Label Imbas - Selari sebaris dengan 4 label lain */}
         <span className={`text-[10px] font-bold tracking-tight transition-colors ${
           pathname === '/scan' ? 'text-teal-700' : 'text-teal-600 group-hover:text-teal-700'
         }`}>

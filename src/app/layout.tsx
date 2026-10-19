@@ -3,14 +3,12 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import { cookies } from "next/headers";
-import prisma from '@/lib/prisma';
 
 const font = Outfit({ subsets: ["latin"] });
 
-
 export const metadata: Metadata = {
-  title: "Sistem OCR Resit Zakat Fitrah",
-  description: "Pengimbas resit zakat berasaskan teknologi AI OCR",
+  title: "Sistem OCR Resit Zakat",
+  description: "Pengimbas resit zakat berasaskan teknologi AI OCR dengan Arkib SharePoint",
 };
 
 export const viewport: Viewport = {
@@ -26,17 +24,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const userId = cookieStore.get('auth_token')?.value;
-  let userRole = cookieStore.get('auth_role')?.value || null;
-  
-  if (userId && !userRole) {
-    try {
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-      userRole = user?.role || 'AMIL';
-    } catch (e) {
-      userRole = 'AMIL';
-    }
-  }
+  const userRole = cookieStore.get('auth_role')?.value || null;
 
   return (
     <html lang="ms">

@@ -15,7 +15,7 @@ export default function AdminDashboard({ data, currentYear }: { data: any, curre
             <BarChart3 className="text-teal-500" />
             Dashboard Kutipan (Admin)
           </h2>
-          <p className="text-xs text-slate-500 font-medium mt-1">Ringkasan keseluruhan mengikut Tahun Hijrah.</p>
+          <p className="text-xs text-slate-500 font-medium mt-1">Ringkasan keseluruhan daripada SharePoint Database.</p>
         </div>
         
         <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
@@ -106,7 +106,7 @@ export default function AdminDashboard({ data, currentYear }: { data: any, curre
               <Coins size={16} />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800">Harta (Emas & Perak)</p>
+              <p className="text-sm font-bold text-slate-800">Harta (Emas &amp; Perak)</p>
               <p className="text-[11px] font-bold text-amber-600 mt-0.5">{data.hartaEmas?.count || 0} Resit</p>
             </div>
           </div>
@@ -119,7 +119,7 @@ export default function AdminDashboard({ data, currentYear }: { data: any, curre
           <Download size={18} />
           Muat Turun Database Penuh (CSV)
         </a>
-        <p className="text-center text-[10px] text-slate-400 mt-2">Termasuk perincian timestamp & wakalah</p>
+        <p className="text-center text-[10px] text-slate-400 mt-2">Termasuk perincian timestamp &amp; wakalah</p>
       </div>
     </div>
   );

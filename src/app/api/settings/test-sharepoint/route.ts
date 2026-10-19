@@ -12,7 +12,7 @@ export async function POST() {
       details: result
     });
   } catch (error: any) {
-    console.error("Test SharePoint connection failed:", error);
+    console.error('Test SharePoint connection failed:', error);
     return NextResponse.json({
       success: false,
       error: error?.message || 'Gagal mengesahkan sambungan ke SharePoint Site'

@@ -1,12 +1,11 @@
-// Microsoft Graph API Helpers (Cloudflare Workers / Edge Compatible)
-// Menggunakan native fetch untuk sokongan penuh Edge Runtime (tanpa msal-node)
+// Microsoft Graph API Helpers for SharePoint Document Library & Lists
+// Direct native fetch - edge and server compatible, lightweight, zero dependencies
 
-const DEFAULT_TENANT_ID = '47020947-65c5-427e-be88-fdc455f97b89';
-const DEFAULT_CLIENT_ID = '9720677c-41e1-4882-9a9b-ed1262dd8f06';
-
-// SharePoint Site: EZakat OCR Scanner (jpibrunei.sharepoint.com/sites/EZakatOCRScanner)
-const DEFAULT_SHAREPOINT_SITE_ID = 'jpibrunei.sharepoint.com,1fa0ce81-c3af-4f98-b753-15fa5834c4e7,1ea40027-da4f-4631-9baf-8ee311adc519';
-const DEFAULT_SHAREPOINT_DRIVE_ID = 'b!gc6gH6_DmE-3UxX6WDTE5ycApB5P2jFGm6-O4xGtxRl6_McPzCoeS7A2m-3joIjh';
+const DEFAULT_TENANT_ID = process.env.MS_TENANT_ID || '47020947-65c5-427e-be88-fdc455f97b89';
+const DEFAULT_CLIENT_ID = process.env.MS_CLIENT_ID || '9720677c-41e1-4882-9a9b-ed1262dd8f06';
+const DEFAULT_CLIENT_SECRET = process.env.MS_CLIENT_SECRET || '';
+const DEFAULT_SITE_ID = process.env.SHAREPOINT_SITE_ID || 'jpibrunei.sharepoint.com,1fa0ce81-c3af-4f98-b753-15fa5834c4e7,1ea40027-da4f-4631-9baf-8ee311adc519';
+const DEFAULT_DRIVE_ID = process.env.SHAREPOINT_DRIVE_ID || 'b!gc6gH6_DmE-3UxX6WDTE5ycApB5P2jFGm6-O4xGtxRl6_McPzCoeS7A2m-3joIjh';
 
 let cachedToken = '';
 let tokenExpiry = 0;
@@ -14,14 +13,14 @@ let tokenExpiry = 0;
 export async function getGraphToken(): Promise<string> {
   const MS_TENANT_ID = process.env.MS_TENANT_ID || DEFAULT_TENANT_ID;
   const MS_CLIENT_ID = process.env.MS_CLIENT_ID || DEFAULT_CLIENT_ID;
-  const MS_CLIENT_SECRET = process.env.MS_CLIENT_SECRET || '';
+  const MS_CLIENT_SECRET = process.env.MS_CLIENT_SECRET || DEFAULT_CLIENT_SECRET;
 
   if (cachedToken && Date.now() < tokenExpiry) {
     return cachedToken;
   }
 
   if (!MS_TENANT_ID || !MS_CLIENT_ID || !MS_CLIENT_SECRET) {
-    throw new Error('Konfigurasi Microsoft Graph (MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET) tidak lengkap dalam pembolehubah persekitaran (Cloudflare Environment Variables).');
+    throw new Error('Konfigurasi Microsoft Graph (MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET) tidak lengkap.');
   }
 
   const url = `https://login.microsoftonline.com/${MS_TENANT_ID}/oauth2/v2.0/token`;
@@ -33,7 +32,7 @@ export async function getGraphToken(): Promise<string> {
   });
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 saat timeout
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const res = await fetch(url, {
@@ -45,38 +44,46 @@ export async function getGraphToken(): Promise<string> {
 
     if (!res.ok) {
       const errorText = await res.text();
-      throw new Error(`Gagal mendapatkan token MS Graph dari Entra ID (HTTP ${res.status}): ${errorText}`);
+      throw new Error(`Gagal mendapatkan token MS Graph (HTTP ${res.status}): ${errorText}`);
     }
 
     const data = await res.json();
     cachedToken = data.access_token;
-    tokenExpiry = Date.now() + ((data.expires_in - 300) * 1000); // Buffer 5 minit
-    
+    tokenExpiry = Date.now() + ((data.expires_in - 300) * 1000);
     return cachedToken;
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-function getDriveBaseEndpoint(): string {
-  const SHAREPOINT_DRIVE_ID = process.env.SHAREPOINT_DRIVE_ID || DEFAULT_SHAREPOINT_DRIVE_ID;
-  return `https://graph.microsoft.com/v1.0/drives/${SHAREPOINT_DRIVE_ID}`;
+export function getSharePointSiteId(): string {
+  return process.env.SHAREPOINT_SITE_ID || DEFAULT_SITE_ID;
+}
+
+export function getSharePointDriveId(): string {
+  return process.env.SHAREPOINT_DRIVE_ID || DEFAULT_DRIVE_ID;
+}
+
+export function getDriveBaseEndpoint(): string {
+  const driveId = getSharePointDriveId();
+  return `https://graph.microsoft.com/v1.0/drives/${driveId}`;
 }
 
 /**
- * Memuat naik fail fizikal (Gambar / PDF) terus ke SharePoint Site Document Library
- * @param path Lokasi dalam SharePoint Documents (Cth: Zakat-Images/CS004008/Utama-CS004008.jpg)
- * @param buffer Kandungan fail (Uint8Array / ArrayBuffer)
- * @param contentType Jenis MIME (image/jpeg, application/pdf)
- * @returns Rujukan data fail dari Graph API (termasuk webUrl)
+ * Muat naik fail fizikal (Gambar resit) ke SharePoint Document Library
  */
-export async function uploadToOneDrive(path: string, buffer: Buffer | ArrayBuffer, contentType: string) {
+export async function uploadToOneDrive(
+  path: string, 
+  buffer: Buffer | ArrayBuffer, 
+  contentType: string
+) {
   const token = await getGraphToken();
   const baseEndpoint = getDriveBaseEndpoint();
-  const url = `${baseEndpoint}/root:/${path}:/content`;
-  
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  const url = `${baseEndpoint}/root:/${cleanPath}:/content`;
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 saat timeout
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const res = await fetch(url, {
@@ -91,27 +98,25 @@ export async function uploadToOneDrive(path: string, buffer: Buffer | ArrayBuffe
 
     if (!res.ok) {
       const errorText = await res.text();
-      throw new Error(`Gagal memuat naik fail ke SharePoint Document Library (HTTP ${res.status}): ${errorText}`);
+      throw new Error(`Gagal memuat naik fail ke SharePoint (HTTP ${res.status}): ${errorText}`);
     }
 
-    return res.json();
+    return await res.json();
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
 /**
- * Mencipta pautan perkongsian 'view-only' untuk SharePoint Document Library
- * @param itemId ID fail dari Graph API
- * @returns Pautan perkongsian (Sharing Link URL)
+ * Cipta pautan perkongsian 'view' untuk fail di SharePoint Document Library
  */
 export async function createSharingLink(itemId: string): Promise<string> {
   const token = await getGraphToken();
   const baseEndpoint = getDriveBaseEndpoint();
   const url = `${baseEndpoint}/items/${itemId}/createLink`;
-  
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 saat timeout
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
 
   try {
     const res = await fetch(url, {
@@ -121,33 +126,24 @@ export async function createSharingLink(itemId: string): Promise<string> {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        type: "view",
-        scope: "organization"
+        type: 'view',
+        scope: 'organization'
       }),
       signal: controller.signal
     });
 
     if (!res.ok) {
-      // Direct fallback: dapatkan terus webUrl asal dari item SharePoint
+      // Fallback: cuba dapatkan webUrl asal terus dari item
       const itemUrl = `${baseEndpoint}/items/${itemId}`;
-      const itemController = new AbortController();
-      const itemTimeoutId = setTimeout(() => itemController.abort(), 10000);
-      
-      try {
-        const itemRes = await fetch(itemUrl, {
-          headers: { 'Authorization': `Bearer ${token}` },
-          signal: itemController.signal
-        });
-        if (itemRes.ok) {
-          const itemData = await itemRes.json();
-          if (itemData.webUrl) return itemData.webUrl;
-        }
-      } finally {
-        clearTimeout(itemTimeoutId);
+      const itemRes = await fetch(itemUrl, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (itemRes.ok) {
+        const itemData = await itemRes.json();
+        if (itemData.webUrl) return itemData.webUrl;
       }
-
       const errorText = await res.text();
-      throw new Error(`Gagal mencipta link perkongsian SharePoint (HTTP ${res.status}): ${errorText}`);
+      throw new Error(`Gagal mencipta link perkongsian SharePoint: ${errorText}`);
     }
 
     const data = await res.json();
@@ -158,29 +154,33 @@ export async function createSharingLink(itemId: string): Promise<string> {
 }
 
 /**
- * Uji Sambungan Azure Entra ID App 'Zakat OCR Scanner' dan SharePoint Site Document Library
+ * Uji sambungan ke Microsoft Graph dan SharePoint
  */
 export async function testSharePointConnection() {
   const token = await getGraphToken();
-  const SHAREPOINT_DRIVE_ID = process.env.SHAREPOINT_DRIVE_ID || DEFAULT_SHAREPOINT_DRIVE_ID;
-  const testUrl = `https://graph.microsoft.com/v1.0/drives/${SHAREPOINT_DRIVE_ID}`;
+  const driveId = getSharePointDriveId();
+  const siteId = getSharePointSiteId();
 
-  const res = await fetch(testUrl, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
+  const [driveRes, siteRes] = await Promise.all([
+    fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }),
+    fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+  ]);
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Pengesahan Entra ID Berjaya, tetapi sasaran SharePoint Document Library (${SHAREPOINT_DRIVE_ID}) gagal diakses (HTTP ${res.status}): ${errorText}`);
+  if (!driveRes.ok || !siteRes.ok) {
+    throw new Error('Gagal menyambung ke SharePoint Drive atau Site');
   }
 
-  const data = await res.json();
+  const [driveData, siteData] = await Promise.all([driveRes.json(), siteRes.json()]);
+
   return {
     success: true,
-    targetDesc: `SharePoint Document Library (EZakat OCR Scanner)`,
-    name: `${data.name || 'Documents'} (${data.owner?.group?.displayName || 'EZakat OCR Scanner'})`,
-    webUrl: data.webUrl || 'https://jpibrunei.sharepoint.com/sites/EZakatOCRScanner/Shared%20Documents',
-    driveType: data.driveType || 'documentLibrary',
-    id: data.id
+    siteName: siteData.displayName || 'EZakat OCR Scanner',
+    siteUrl: siteData.webUrl,
+    driveName: driveData.name,
+    driveType: driveData.driveType
   };
 }

@@ -1,11 +1,9 @@
 import Link from 'next/link';
 import AdminDashboard from '@/components/AdminDashboard';
-import { FileText, Plus, ScanLine, ArrowRight, UserCircle2, MapPin, LogOut, Download } from 'lucide-react';
-import prisma from '@/lib/prisma';
+import { FileText, Plus, ScanLine, ArrowRight, UserCircle2, MapPin, LogOut } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-
-
+import { getReceipts, getUserById } from '@/lib/sharepoint-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,119 +26,69 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
     role: cachedRole,
     mosque: { name: 'Kariah Masjid', zone: { name: 'Brunei' } }
   };
-  let receipts: any[] = [];
-  let totalAmount = 0;
-  let totalReceipts = 0;
-  let adminData: any = { totalFitrah: 0, totalHarta: 0, countFitrah: 0, countHarta: 0, zoneStats: [] as any[] };
-  let recentReceipts: any[] = [];
 
   try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { mosque: { include: { zone: true } } }
-    });
-
+    const dbUser = await getUserById(userId);
     if (dbUser) {
-      user = dbUser;
-      const isNotAdmin = user.role !== 'ADMIN';
-
-      // Jalankan query secara serentak untuk kepantasan maksimum
-      const [fetchedRecentReceipts, stats, adminGroupedReceipts, riceTypesList] = await Promise.all([
-        prisma.receipt.findMany({
-          where: isNotAdmin ? { amilId: user.id } : {},
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          select: {
-            id: true,
-            receiptNumber: true,
-            payerName: true,
-            totalAmount: true,
-            createdAt: true,
-            zakatType: true,
-          }
-        }),
-        prisma.receipt.aggregate({
-          where: isNotAdmin ? { amilId: user.id } : {},
-          _count: { id: true },
-          _sum: { totalAmount: true, dependents: true }
-        }),
-        !isNotAdmin ? prisma.receipt.groupBy({
-          by: ['zakatType', 'riceTypeId', 'hartaSubtype'],
-          where: {
-            OR: [
-              { riceType: { activeYear: currentYear } }, 
-              { AND: [{ zakatType: 'HARTA' }] }
-            ]
-          },
-          _sum: { totalAmount: true },
-          _count: { id: true }
-        }) : Promise.resolve([]),
-        !isNotAdmin ? prisma.riceType.findMany() : Promise.resolve([])
-      ]);
-      
-      recentReceipts = fetchedRecentReceipts;
-      
-      if (!isNotAdmin) {
-        adminData = {
-          totalSiam: { amount: 0, count: 0 },
-          totalWangi: { amount: 0, count: 0 },
-          hartaSimpanan: { amount: 0, count: 0 },
-          hartaPerniagaan: { amount: 0, count: 0 },
-          hartaEmas: { amount: 0, count: 0 },
-          overallTotal: 0
-        } as any;
-        
-        const riceMap = new Map(riceTypesList.map(r => [r.id, r.name.toLowerCase()]));
-
-        adminGroupedReceipts.forEach((r: any) => {
-          const sumAmount = r._sum.totalAmount || 0;
-          const countId = r._count.id || 0;
-          adminData.overallTotal += sumAmount;
-          
-          if (r.zakatType === 'HARTA') {
-            const subtype = (r.hartaSubtype || '').toLowerCase();
-            if (subtype.includes('simpanan')) {
-              adminData.hartaSimpanan.amount += sumAmount;
-              adminData.hartaSimpanan.count += countId;
-            } else if (subtype.includes('perniagaan')) {
-              adminData.hartaPerniagaan.amount += sumAmount;
-              adminData.hartaPerniagaan.count += countId;
-            } else if (subtype.includes('emas') || subtype.includes('perak')) {
-              adminData.hartaEmas.amount += sumAmount;
-              adminData.hartaEmas.count += countId;
-            } else {
-              adminData.hartaSimpanan.amount += sumAmount;
-              adminData.hartaSimpanan.count += countId;
-            }
-          } else {
-            const riceName = riceMap.get(r.riceTypeId) || '';
-            if (riceName.includes('wangi')) {
-              adminData.totalWangi.amount += sumAmount;
-              adminData.totalWangi.count += countId;
-            } else {
-              adminData.totalSiam.amount += sumAmount;
-              adminData.totalSiam.count += countId;
-            }
-          }
-        });
-      }
-
-      receipts = recentReceipts;
-      totalAmount = stats._sum.totalAmount || 0;
-      totalReceipts = stats._count.id + (stats._sum.dependents || 0);
+      user = {
+        ...dbUser,
+        mosque: { name: dbUser.mosqueName || 'Kariah Masjid', zone: { name: dbUser.zoneName || 'Brunei' } }
+      };
     }
-  } catch (err) {
-    console.warn("Home page database notice:", err);
-  }
+  } catch (_) {}
 
-  const handleLogout = async () => {
-    "use server";
-    const store = await cookies();
-    store.delete('auth_token');
-    store.delete('auth_role');
-    store.delete('auth_name');
-    redirect('/login');
+  const isNotAdmin = user.role !== 'ADMIN';
+
+  // Dapatkan resit terus daripada SharePoint
+  const allReceipts = await getReceipts({
+    amilId: isNotAdmin && user.role !== 'STAFF' ? user.id : undefined,
+    limit: 150
+  });
+
+  const recentReceipts = allReceipts.slice(0, 10);
+
+  // Kiraan statistik
+  let totalAmount = 0;
+  let totalReceipts = 0;
+
+  const adminData: any = {
+    totalSiam: { amount: 0, count: 0 },
+    totalWangi: { amount: 0, count: 0 },
+    hartaSimpanan: { amount: 0, count: 0 },
+    hartaPerniagaan: { amount: 0, count: 0 },
+    hartaEmas: { amount: 0, count: 0 },
+    overallTotal: 0
   };
+
+  allReceipts.forEach(r => {
+    totalAmount += r.totalAmount;
+    totalReceipts += 1 + (r.dependents || 0);
+
+    adminData.overallTotal += r.totalAmount;
+
+    if (r.zakatType === 'HARTA') {
+      const subtype = (r.hartaSubtype || '').toLowerCase();
+      if (subtype.includes('perniagaan')) {
+        adminData.hartaPerniagaan.amount += r.totalAmount;
+        adminData.hartaPerniagaan.count += 1;
+      } else if (subtype.includes('emas') || subtype.includes('perak')) {
+        adminData.hartaEmas.amount += r.totalAmount;
+        adminData.hartaEmas.count += 1;
+      } else {
+        adminData.hartaSimpanan.amount += r.totalAmount;
+        adminData.hartaSimpanan.count += 1;
+      }
+    } else {
+      const rice = (r.riceType || '').toLowerCase();
+      if (rice.includes('wangi') || r.receiptNumber.startsWith('DW')) {
+        adminData.totalWangi.amount += r.totalAmount;
+        adminData.totalWangi.count += 1;
+      } else {
+        adminData.totalSiam.amount += r.totalAmount;
+        adminData.totalSiam.count += 1;
+      }
+    }
+  });
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-24 font-sans selection:bg-teal-200 selection:text-teal-900">
@@ -183,7 +131,8 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
               c.delete('auth_token');
               c.delete('auth_name');
               c.delete('auth_role');
-              c.delete('auth_mosque_id');
+              c.delete('auth_login_id');
+              redirect('/login');
             }}>
               <button type="submit" className="text-slate-400 hover:text-red-500 p-2.5 active:scale-90 transition-all bg-slate-50 rounded-xl hover:bg-red-50" title="Log Keluar">
                 <LogOut size={18} strokeWidth={2.5} />
@@ -242,7 +191,11 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
           <div className="space-y-3">
             {recentReceipts.length > 0 ? (
               recentReceipts.map((r: any) => (
-                <div key={r.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-teal-200 transition-colors">
+                <Link 
+                  key={r.id} 
+                  href={`/receipt/${r.id}`}
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group hover:border-teal-200 transition-colors block"
+                >
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${r.zakatType === 'HARTA' ? 'bg-amber-100 text-amber-600' : 'bg-teal-100 text-teal-600'}`}>
                       <FileText size={18} />
@@ -258,13 +211,13 @@ export default async function Home(props: { searchParams?: Promise<{ year?: stri
                       {r.zakatType === 'HARTA' ? 'Harta' : 'Fitrah'}
                     </p>
                   </div>
-                </div>
+                </Link>
               ))
             ) : (
               <div className="bg-white/60 p-8 rounded-3xl border border-dashed border-slate-300 text-center">
                 <FileText className="mx-auto text-slate-300 mb-3" size={32} />
                 <p className="text-slate-500 font-medium text-sm">Belum ada sebarang rekod.</p>
-                <p className="text-xs text-slate-400 mt-1">Mulakan imbasan untuk merekod resit zakat.</p>
+                <p className="text-xs text-slate-400 mt-1">Mulakan imbasan untuk merekod resit zakat ke SharePoint.</p>
               </div>
             )}
           </div>

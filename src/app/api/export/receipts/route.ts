@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { getReceipts, getUserById } from '@/lib/sharepoint-db';
 
-
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const cookieStore = await cookies();
@@ -12,48 +12,14 @@ export async function GET(req: Request) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  
-  if (user?.role !== 'ADMIN') {
+  const user = await getUserById(userId);
+  if (user?.role !== 'ADMIN' && user?.role !== 'STAFF') {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
   try {
-    const url = new URL(req.url);
-    const year = url.searchParams.get('year');
-    const whereClause = year ? {
-      OR: [
-        { riceType: { activeYear: year } },
-        { AND: [{ zakatType: 'HARTA' }] }
-      ]
-    } : {};
+    const receipts = await getReceipts({ limit: 500 });
 
-      const receipts = await prisma.receipt.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        receiptNumber: true,
-        payerName: true,
-        payerIcNumber: true,
-        isVerified: true,
-        isWakalah: true,
-        dependents: true,
-        paymentDate: true,
-        totalAmount: true,
-        zakatType: true,
-        hartaSubtype: true,
-        remarks: true,
-        paidAmount: true,
-        createdAt: true,
-        amil: {
-          select: { name: true, loginId: true, mosque: { select: { name: true, zone: { select: { name: true } } } } }
-        },
-        riceType: true
-      },
-      orderBy: { paymentDate: 'desc' }
-    });
-
-    // Generate CSV
     const headers = [
       'No. Resit',
       'Jenis Zakat',
@@ -67,7 +33,6 @@ export async function GET(req: Request) {
       'Jumlah Diterima ($)',
       'Timestamp Penuh',
       'Nama Amil',
-      'ID Amil',
       'Masjid',
       'Zon'
     ];
@@ -76,18 +41,17 @@ export async function GET(req: Request) {
       r.receiptNumber,
       r.zakatType === 'HARTA' ? 'Zakat Harta' : 'Zakat Fitrah',
       new Date(r.paymentDate).toLocaleDateString('ms-MY'),
-      `"${r.payerName}"`, // Quote strings that might have commas
+      `"${r.payerName}"`,
       r.payerIcNumber || '-',
       r.isWakalah ? 'Ya' : 'Tidak',
-      r.zakatType === 'HARTA' ? 'Harta' : (r.riceType?.name || '-'),
+      r.zakatType === 'HARTA' ? (r.hartaSubtype || 'Harta') : (r.riceType || 'Beras Siam'),
       r.zakatType === 'HARTA' ? '-' : r.dependents.toString(),
       r.totalAmount.toFixed(2),
-      (r.paidAmount || r.totalAmount).toFixed(2),
-      r.createdAt.toISOString(),
-      `"${r.amil.name}"`,
-      r.amil.loginId,
-      `"${r.amil.mosque?.name || '-'}"`,
-      `"${r.amil.mosque?.zone?.name || '-'}"`
+      r.paidAmount.toFixed(2),
+      r.createdAt,
+      `"${r.amilName}"`,
+      `"${r.mosqueName || '-'}"`,
+      `"${r.zoneName || '-'}"`
     ]);
 
     const csvContent = [
@@ -100,13 +64,12 @@ export async function GET(req: Request) {
     return new NextResponse(csvContent, {
       status: 200,
       headers: {
-        'Content-Type': 'text/csv',
+        'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     });
-
   } catch (error) {
-    console.error("Export error:", error);
+    console.error('Export error:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

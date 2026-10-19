@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
-import prisma from '@/lib/prisma';
+import { getUserByLoginId } from '@/lib/sharepoint-db';
 
 const hashPassword = (password: string) => {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -17,48 +17,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Sila masukkan ID Pengguna dan Kata Laluan' }, { status: 400 });
     }
 
-    let user: any = null;
-    try {
-      // 1. Cari pengguna secara case-insensitive
-      user = await prisma.user.findFirst({
-        where: {
-          loginId: {
-            equals: cleanLoginId,
-            mode: 'insensitive'
-          }
-        }
-      });
-    } catch (dbErr: any) {
-      console.warn('DB lookup notice during auth:', dbErr?.message);
-      // Fallback kecemasan untuk akaun admin atau staf jika DB Supabase tergendala sementara
-      if (cleanLoginId.toLowerCase() === 'admin' && cleanPassword === 'admin123') {
-        user = {
-          id: '63cbcbaa-f75b-4c3b-ad4b-559394d8c3e5',
-          loginId: 'admin',
-          name: 'Pentadbir Utama',
-          password: hashPassword('admin123'),
-          role: 'ADMIN'
-        };
-      } else if (cleanLoginId.toLowerCase() === 'staf' && cleanPassword === 'staf123') {
-        user = {
-          id: '88cbcbaa-f75b-4c3b-ad4b-559394d8c3e8',
-          loginId: 'staf',
-          name: 'Staf Arkib JUZWAB',
-          password: hashPassword('staf123'),
-          role: 'STAFF'
-        };
-      } else {
-        throw dbErr;
-      }
-    }
+    const user = await getUserByLoginId(cleanLoginId);
 
-    if (!user || user.password !== hashPassword(cleanPassword)) {
+    if (!user || user.passwordHash !== hashPassword(cleanPassword)) {
       return NextResponse.json({ error: 'ID Pengguna atau Kata Laluan tidak sah' }, { status: 401 });
     }
 
     const response = NextResponse.json({ 
       success: true, 
-      user: { id: user.id, role: user.role, name: user.name } 
+      user: { 
+        id: user.id, 
+        role: user.role, 
+        name: user.name,
+        loginId: user.loginId 
+      } 
     });
     
     const cookieOptions = {
@@ -68,30 +40,34 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24 * 7 // 7 hari
     };
 
-    // Tetapkan kuki terus pada response
     response.cookies.set('auth_token', user.id, cookieOptions);
     response.cookies.set('auth_role', user.role, cookieOptions);
     response.cookies.set('auth_name', encodeURIComponent(user.name), cookieOptions);
+    response.cookies.set('auth_login_id', user.loginId, cookieOptions);
 
-    // Tetapkan juga pada cookieStore untuk keserasian dwiarah
     try {
       const cookieStore = await cookies();
       cookieStore.set('auth_token', user.id, cookieOptions);
       cookieStore.set('auth_role', user.role, cookieOptions);
       cookieStore.set('auth_name', encodeURIComponent(user.name), cookieOptions);
+      cookieStore.set('auth_login_id', user.loginId, cookieOptions);
     } catch (_) {}
 
     return response;
   } catch (error: any) {
     console.error('Auth server error:', error);
-    const errorMsg = error?.message || 'Ralat sambungan pangkalan data';
-    const userMsg = errorMsg.includes('connection') || errorMsg.includes('timeout') 
-      ? 'Sambungan pangkalan data tidak stabil. Sila cuba lagi dalam beberapa saat.'
-      : 'Ralat sambungan pangkalan data';
-    
     return NextResponse.json({ 
-      error: userMsg,
-      details: error?.message || 'Sila cuba sebentar lagi'
+      error: 'Ralat pelayan semasa log masuk. Sila cuba sebentar lagi.',
+      details: error?.message
     }, { status: 500 });
   }
+}
+
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  response.cookies.delete('auth_token');
+  response.cookies.delete('auth_role');
+  response.cookies.delete('auth_name');
+  response.cookies.delete('auth_login_id');
+  return response;
 }

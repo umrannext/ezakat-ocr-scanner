@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { processOneDriveSync } from '@/lib/onedrive-sync';
 import { cookies } from 'next/headers';
+import { getReceipts, createReceipt, getUserById } from '@/lib/sharepoint-db';
+import { uploadReceiptImagesToSharePoint } from '@/lib/sharepoint-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     const cookieStore = await cookies();
     let userId = cookieStore.get('auth_token')?.value;
-    let userRole = cookieStore.get('auth_role')?.value;
+    let userRole = cookieStore.get('auth_role')?.value || 'AMIL';
 
     if (!userId) {
       const cookieHeader = req.headers.get('cookie') || '';
@@ -21,70 +21,24 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Sekiranya role tiada dalam kuki, semak user di DB
-    if (!userRole) {
-      try {
-        const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-        userRole = user?.role || 'AMIL';
-      } catch (_) {
-        userRole = 'AMIL';
-      }
-    }
-
     const { searchParams } = new URL(req.url);
-    const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '60', 10)));
+    const limit = Math.min(200, Math.max(10, parseInt(searchParams.get('limit') || '80', 10)));
 
-    const receipts = await prisma.receipt.findMany({
-      where: userRole === 'AMIL' ? { amilId: userId } : {},
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        receiptNumber: true,
-        payerName: true,
-        payerIcNumber: true,
-        isVerified: true,
-        isWakalah: true,
-        dependents: true,
-        paymentDate: true,
-        totalAmount: true,
-        zakatType: true,
-        hartaSubtype: true,
-        groupId: true,
-        remarks: true,
-        dependentReceipts: true,
-        missingDependents: true,
-        paidAmount: true,
-        amilId: true,
-        riceTypeId: true,
-        createdAt: true,
-        updatedAt: true,
-        riceType: {
-          select: { id: true, name: true, code: true, price: true, activeYear: true }
-        },
-        amil: {
-          select: { id: true, name: true, loginId: true }
-        }
-      }
+    const receipts = await getReceipts({
+      amilId: userRole === 'AMIL' ? userId : undefined,
+      limit
     });
-
-    const serialized = receipts.map(r => ({
-      ...r,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-      paymentDate: r.paymentDate.toISOString()
-    }));
 
     const response = NextResponse.json({
       success: true,
-      data: serialized,
+      data: receipts,
       userRole
     });
-    // Cache 5 saat di browser — halaman Sejarah refresh pantas tanpa fetch semula
+
     response.headers.set('Cache-Control', 'private, max-age=5');
     return response;
   } catch (error: any) {
-    console.error("Ralat mendapatkan senarai resit:", error);
+    console.error('Ralat mendapatkan senarai resit dari SharePoint:', error);
     return NextResponse.json({
       success: false,
       error: error?.message || 'Gagal memuatkan rekod resit'
@@ -94,145 +48,96 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    // 1. Dapatkan amilId daripada kuki atau header
-    let amilId = (await cookies()).get('auth_token')?.value;
-    if (!amilId) {
+    const cookieStore = await cookies();
+    let userId = cookieStore.get('auth_token')?.value;
+    let userName = cookieStore.get('auth_name')?.value ? decodeURIComponent(cookieStore.get('auth_name')!.value) : 'Amil';
+
+    if (!userId) {
       const cookieHeader = req.headers.get('cookie') || '';
       const match = cookieHeader.match(/auth_token=([^;]+)/);
-      if (match) amilId = match[1];
+      if (match) userId = match[1];
     }
 
-    // 2. Sahkan pengguna wujud dalam pangkalan data (sokong fallback jika sesi amil)
-    let user = amilId ? await prisma.user.findUnique({ where: { id: amilId } }) : null;
-    if (!user) {
-      user = await prisma.user.findFirst({ where: { role: 'AMIL' } }) || await prisma.user.findFirst();
-    }
-
-    if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Sesi log masuk tidak sah. Sila log masuk semula.' 
-      }, { status: 401 });
-    }
+    const user = userId ? await getUserById(userId) : null;
+    const finalUserId = user?.id || userId || 'unknown';
+    const finalUserName = user?.name || userName || 'Amil Zakat';
+    const finalMosque = user?.mosqueName || 'Kariah Masjid';
+    const finalZone = user?.zoneName || 'Brunei';
 
     const textBody = await req.text();
     const data = JSON.parse(textBody);
 
-    // 3. Sahkan Nombor Resit & Nama Pembayar
     const receiptNumber = data.receiptNumber?.trim() || ('RZT-' + Math.floor(100000 + Math.random() * 900000));
     const payerName = data.isQuickMode 
       ? (data.payerName?.trim() || 'Arkib Zakat Fitrah') 
       : (data.payerName?.trim() || 'Pembayar Zakat');
     const payerIcNumber = data.isQuickMode ? null : (data.icNumber?.trim() || null);
 
-    // 4. Sahkan RiceTypeId (Pastikan wujud dalam DB atau null jika Zakat Harta)
-    let validRiceTypeId: string | null = null;
-    let selectedRicePrice = 0;
-    if (data.zakatType !== 'HARTA') {
-      let checkRice = null;
-      if (data.riceTypeId && typeof data.riceTypeId === 'string' && data.riceTypeId.trim() !== '') {
-        checkRice = await prisma.riceType.findUnique({ where: { id: data.riceTypeId } });
-      }
-      if (!checkRice) {
-        // Cari mengikut nama / kod beras jika ID tidak ditemui
-        const isWangi = receiptNumber.startsWith('DW') || (typeof data.riceTypeId === 'string' && data.riceTypeId.toLowerCase().includes('wangi'));
-        checkRice = await prisma.riceType.findFirst({
-          where: {
-            name: { contains: isWangi ? 'Wangi' : 'Siam', mode: 'insensitive' }
-          }
-        });
-      }
-      if (!checkRice) {
-        checkRice = await prisma.riceType.findFirst({ where: { activeYear: '1447H' } }) || await prisma.riceType.findFirst();
-      }
-      if (checkRice) {
-        validRiceTypeId = checkRice.id;
-        selectedRicePrice = checkRice.price;
-      }
-    }
-
     const dependents = data.dependents !== undefined ? parseInt(data.dependents, 10) : 0;
     let totalAmount = data.totalAmount !== undefined ? parseFloat(data.totalAmount) : 0;
     
-    // Failsafe: Jika bayaran fitrah $0.00, kira semula berasaskan (1 + tanggungan) * harga beras
+    // Auto calculate if zero
     if (data.zakatType !== 'HARTA' && (!totalAmount || totalAmount <= 0)) {
-      const price = selectedRicePrice > 0 ? selectedRicePrice : (receiptNumber.startsWith('DW') ? 2.84 : 1.93);
+      const price = receiptNumber.startsWith('DW') ? 2.84 : 1.93;
       totalAmount = parseFloat(((dependents + 1) * price).toFixed(2));
     }
 
-    const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
-    // Untuk PostgreSQL (Neon), kita elakkan simpan base64 yang terlampau besar supaya tidak berlaku HTTP 500
-    const dbSafeImageUrl = (data.imageUrl && typeof data.imageUrl === 'string' && data.imageUrl.length < 150000) ? data.imageUrl : null;
-    const dbSafeDependentImages = Array.isArray(data.dependentImages) 
-      ? data.dependentImages.filter((img: any) => typeof img === 'string' && img.length < 150000) 
-      : [];
+    const dependentReceipts = Array.isArray(data.dependentReceipts) ? data.dependentReceipts.filter(Boolean) : [];
+    const dependentImages = Array.isArray(data.dependentImages) ? data.dependentImages.filter(Boolean) : [];
 
-    const safeTotalAmount = isNaN(totalAmount) ? 0 : totalAmount;
-    const safeDependents = isNaN(dependents) ? 0 : dependents;
+    // 1. Muat naik imej ke SharePoint Document Library (Drive)
+    let imageShareLink: string | null = null;
+    let dependentShareLinks: string[] = [];
 
-    // 5. Semak jika resit sudah wujud
-    const existingReceipt = await prisma.receipt.findUnique({
-      where: { receiptNumber: receiptNumber }
-    });
-
-    if (existingReceipt) {
-      return NextResponse.json({ 
-        success: false, 
-        error: `Resit ${receiptNumber} telah pun wujud di dalam sistem arkib.`
-      }, { status: 400 });
-    }
-
-    // 6. Cipta rekod resit tunggal dengan menyertakan Base64 (untuk E-Resit)
-    const createdReceipt = await prisma.receipt.create({
-        data: {
-        receiptNumber: receiptNumber,
-        payerName: payerName,
-        zakatType: data.zakatType || 'FITRAH',
-        hartaSubtype: data.hartaSubtype || null,
-        groupId: data.groupId || null,
-        remarks: data.remarks || null,
-        dependentReceipts: data.dependentReceipts || [],
-        missingDependents: data.missingDependents || 0,
-        riceTypeId: validRiceTypeId,
-        amilId: user.id,
-        payerIcNumber: payerIcNumber,
-        isVerified: Boolean(data.isVerified),
-        isWakalah: Boolean(data.isWakalah),
-        paidAmount: parseFloat(safeTotalAmount.toFixed(2)),
-        dependents: safeDependents,
-        paymentDate: isNaN(paymentDate.getTime()) ? new Date() : paymentDate,
-        totalAmount: parseFloat(safeTotalAmount.toFixed(2)),
-        syncStatus: 'PENDING',
-        imageUrl: dbSafeImageUrl,
-        dependentImages: dbSafeDependentImages
-      }
-    });
-
-    // 7. Muat naik ke SharePoint secara langsung (Mesti AWAIT)
-    // Di Cloudflare Workers, proses yang tidak di-await akan dibunuh serta-merta 
-    // selepas response dihantar. Jadi kita perlu tunggu.
     try {
-      await processOneDriveSync(
-        createdReceipt.id,
+      const syncResult = await uploadReceiptImagesToSharePoint(
         receiptNumber,
         data.imageUrl || null,
-        data.dependentImages || [],
-        data.dependentReceipts || []
+        dependentImages,
+        dependentReceipts
       );
-    } catch (syncError) {
-      console.error("Amaran: Gagal memuat naik ke SharePoint, tetapi resit tersimpan di DB:", syncError);
+      imageShareLink = syncResult.imageShareLink;
+      dependentShareLinks = syncResult.dependentShareLinks;
+    } catch (uploadErr) {
+      console.warn('Amaran muat naik gambar ke SharePoint:', uploadErr);
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    // 2. Simpan rekod resit ke SharePoint List (ZakatReceipts)
+    const createdReceipt = await createReceipt({
+      receiptNumber,
+      payerName,
+      payerIcNumber,
+      zakatType: data.zakatType || 'FITRAH',
+      hartaSubtype: data.hartaSubtype || null,
+      riceType: data.riceTypeName || (receiptNumber.startsWith('DW') ? 'Beras Wangi' : 'Beras Siam'),
+      ricePrice: data.ricePrice || (receiptNumber.startsWith('DW') ? 2.84 : 1.93),
+      dependents,
+      totalAmount: parseFloat(totalAmount.toFixed(2)),
+      paidAmount: parseFloat(totalAmount.toFixed(2)),
+      paymentDate: data.paymentDate || new Date().toISOString().split('T')[0],
+      isVerified: Boolean(data.isVerified),
+      isWakalah: Boolean(data.isWakalah),
+      amilId: finalUserId,
+      amilName: finalUserName,
+      mosqueName: finalMosque,
+      zoneName: finalZone,
+      groupId: data.groupId || null,
+      remarks: data.remarks || null,
+      dependentReceipts,
+      missingDependents: data.missingDependents || 0,
+      imageShareLink,
+      dependentShareLinks
+    });
+
+    return NextResponse.json({
+      success: true,
       data: createdReceipt
     });
   } catch (error: any) {
-    console.error("Ralat simpan resit:", error);
-    return NextResponse.json({ 
-      success: false, 
-
-      error: error?.message || 'Gagal menyimpan rekod resit ke dalam sistem.' 
+    console.error('Ralat simpan resit ke SharePoint:', error);
+    return NextResponse.json({
+      success: false,
+      error: error?.message || 'Gagal menyimpan rekod resit ke dalam SharePoint.'
     }, { status: 500 });
   }
 }

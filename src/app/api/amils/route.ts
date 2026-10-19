@@ -1,75 +1,48 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { cookies } from 'next/headers';
+import { getAllUsers, getUserById, getReceipts } from '@/lib/sharepoint-db';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const cookieStore = await cookies();
-    let userId = cookieStore.get('auth_token')?.value;
-    let role = cookieStore.get('auth_role')?.value;
+    const userId = cookieStore.get('auth_token')?.value;
 
     if (!userId) {
-      const cookieHeader = req.headers.get('cookie') || '';
-      const match = cookieHeader.match(/auth_token=([^;]+)/);
-      if (match) userId = match[1];
+      return NextResponse.json({ success: false, error: 'Sila log masuk' }, { status: 401 });
     }
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Sila log masuk semula' }, { status: 401 });
+    const currentUser = await getUserById(userId);
+    if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'STAFF') {
+      return NextResponse.json({ success: false, error: 'Akses terhad untuk Admin / Staf' }, { status: 403 });
     }
 
-    if (!role) {
-      try {
-        const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-        role = u?.role || 'AMIL';
-      } catch (_) {
-        role = 'ADMIN'; // Fallback selamat
-      }
-    }
+    const [allUsers, allReceipts] = await Promise.all([
+      getAllUsers(),
+      getReceipts({ limit: 500 })
+    ]);
 
-    if (role !== 'ADMIN') {
-      return NextResponse.json({ success: false, error: 'Akses terhad untuk Admin sahaja' }, { status: 403 });
-    }
+    const amils = allUsers.filter(u => u.role === 'AMIL');
 
-    const amils = await prisma.user.findMany({
-      where: { role: 'AMIL' },
-      include: {
+    const serialized = amils.map(a => {
+      const userReceipts = allReceipts.filter(r => r.amilId === a.id || r.amilName === a.name);
+      return {
+        id: a.id,
+        name: a.name,
+        loginId: a.loginId,
+        position: a.position,
+        phoneNumber: a.phoneNumber,
         mosque: {
-          include: { zone: true }
+          name: a.mosqueName || 'Kariah Masjid',
+          zone: { name: a.zoneName || 'Brunei' }
         },
-        receipts: {
-          select: { totalAmount: true }
-        }
-      },
-      orderBy: { name: 'asc' }
+        receipts: userReceipts.map(r => ({ totalAmount: r.totalAmount }))
+      };
     });
 
-    const serialized = amils.map(a => ({
-      id: a.id,
-      name: a.name,
-      loginId: a.loginId,
-      position: a.position,
-      phoneNumber: a.phoneNumber,
-      createdAt: a.createdAt.toISOString(),
-      mosque: a.mosque ? {
-        name: a.mosque.name,
-        phoneNumber: a.mosque.phoneNumber,
-        zone: a.mosque.zone ? { name: a.mosque.zone.name } : null
-      } : null,
-      receipts: a.receipts || []
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: serialized
-    });
+    return NextResponse.json({ success: true, data: serialized });
   } catch (error: any) {
-    console.error("Ralat direktori amil:", error);
-    return NextResponse.json({
-      success: false,
-      error: error?.message || 'Gagal memuatkan senarai amil'
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
   }
 }

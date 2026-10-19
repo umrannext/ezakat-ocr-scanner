@@ -1,20 +1,20 @@
-import prisma from '@/lib/prisma';
 import { notFound } from 'next/navigation';
-import { Printer, CheckCircle2, Download } from 'lucide-react';
+import { CheckCircle2, Download, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import ImageViewer from './ImageViewer';
+import { getReceiptById } from '@/lib/sharepoint-db';
+
+import ReceiptActionButtons from './ReceiptActionButtons';
+
+export const dynamic = 'force-dynamic';
 
 export default async function ReceiptPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  const cookieStore = await cookies();
+  const userRole = cookieStore.get('auth_role')?.value || 'AMIL';
 
-  const receipt = await prisma.receipt.findUnique({
-    where: { id: params.id },
-    include: {
-      amil: { select: { name: true, mosque: { include: { zone: true } } } },
-      riceType: true,
-    }
-  });
+  const receipt = await getReceiptById(params.id);
 
   if (!receipt) {
     notFound();
@@ -26,21 +26,10 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
     <main className="min-h-screen bg-slate-100 flex justify-center py-6 px-4 print:p-0 print:bg-white print:min-h-0 print:block">
       <div className="w-full max-w-md mx-auto print:max-w-full">
         {/* ACTION BUTTONS (NO PRINT) */}
-        <div className="flex justify-between items-center mb-4 print:hidden">
-          <Link href="/" className="text-teal-600 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm">
-            Kembali
-          </Link>
-          <button 
-            id="print-btn"
-            className="flex items-center gap-2 bg-slate-900 text-white font-bold px-4 py-2 rounded-full shadow-sm"
-          >
-            <Download size={16} />
-            Simpan PDF
-          </button>
-        </div>
+        <ReceiptActionButtons receiptNumber={receipt.receiptNumber} />
 
         {/* E-RECEIPT TICKET */}
-        <div id="receipt-content" className={`bg-white rounded-t-3xl shadow-lg overflow-hidden border-2 print:border-none print:shadow-none ${isHarta ? 'border-amber-200' : 'border-teal-200'}`}>
+        <div id="receipt-ticket" className={`bg-white rounded-t-3xl shadow-lg overflow-hidden border-2 print:border-none print:shadow-none ${isHarta ? 'border-amber-200' : 'border-teal-200'}`}>
           <div className={`p-6 text-center ${isHarta ? 'bg-amber-50' : 'bg-teal-50'}`}>
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner ${isHarta ? 'bg-amber-100 text-amber-600' : 'bg-teal-100 text-teal-600'}`}>
               <CheckCircle2 size={36} />
@@ -102,11 +91,11 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
               {!isHarta && receipt.riceType && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-slate-500">Jenis Beras</span>
-                  <span className="font-bold text-slate-800">{receipt.riceType.name}</span>
+                  <span className="font-bold text-slate-800">{receipt.riceType}</span>
                 </div>
               )}
               
-              {!isHarta && receipt.dependents !== undefined && (
+              {!isHarta && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-slate-500">Jumlah Muzakki</span>
                   <span className="font-bold text-slate-800">{receipt.dependents + 1} Orang</span>
@@ -141,39 +130,29 @@ export default async function ReceiptPage(props: { params: Promise<{ id: string 
             </div>
           </div>
           
-          {/* SALINAN ASAL RESIT DIARKIB */}
-          {(receipt.imageShareLink || receipt.imageUrl || receipt.dependentShareLinks.length > 0 || receipt.dependentImages.length > 0 || receipt.missingDependents > 0) && (
+          {/* SALINAN ASAL RESIT DIARKIB DI SHAREPOINT */}
+          {(receipt.imageShareLink || receipt.dependentShareLinks.length > 0 || receipt.missingDependents > 0) && (
             <div className="p-5 border-t border-dashed border-slate-300 bg-slate-50/50 text-center">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2.5">
                 Salinan Imej Resit Fizikal Diarkib
               </span>
-                <ImageViewer 
-                  mainImage={receipt.imageShareLink || receipt.imageUrl} 
-                  dependentImages={receipt.dependentShareLinks.length > 0 ? receipt.dependentShareLinks : receipt.dependentImages} 
-                  receiptNumber={receipt.receiptNumber} 
-                  dependentReceipts={receipt.dependentReceipts} 
-                  userRole={(await cookies()).get('auth_role')?.value || 'AMIL'}
-                />
-                
-                {/* Missing Dependents Info */}
-                {receipt.missingDependents > 0 && (
-                  <div className="rounded-xl border border-dashed border-red-300 bg-red-50 p-4 text-red-600 text-xs font-bold mt-2">
-                    {receipt.missingDependents} resit tanggungan ditandakan hilang (Resit fizikal tidak dijumpai).
-                  </div>
-                )}
+              <ImageViewer 
+                mainImage={receipt.imageShareLink} 
+                dependentImages={receipt.dependentShareLinks} 
+                receiptNumber={receipt.receiptNumber} 
+                dependentReceipts={receipt.dependentReceipts} 
+                userRole={userRole}
+              />
+              
+              {receipt.missingDependents > 0 && (
+                <div className="rounded-xl border border-dashed border-red-300 bg-red-50 p-4 text-red-600 text-xs font-bold mt-2">
+                  {receipt.missingDependents} resit tanggungan ditandakan hilang (Resit fizikal tidak dijumpai).
+                </div>
+              )}
             </div>
           )}
           
         </div>
-
-        {/* PRINT SCRIPT */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            document.getElementById('print-btn')?.addEventListener('click', function() {
-              window.print();
-            });
-          `
-        }} />
       </div>
     </main>
   );

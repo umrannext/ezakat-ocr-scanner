@@ -1,8 +1,9 @@
 /**
  * Helper modul untuk memproses imej resit dan mengekstrak:
- * 1. Warna Kertas Resit (Hijau = DW / Kuning = CS)
+ * 1. Warna Kertas Resit (Hijau = DW / Kuning = CS / Putih = Harta)
  * 2. Kod Beras (DW / CS) & 6-Angka Nombor Resit
- * 3. Jumlah Muzakki / Tanggungan (Roman & Jawi/Arab)
+ * 3. 5-Angka Zakat Harta (Borang A)
+ * 4. Jumlah Muzakki / Tanggungan (Roman & Jawi/Arab)
  */
 
 export interface PaperColorResult {
@@ -56,22 +57,15 @@ export const JAWI_WORD_MAP: Record<string, number> = {
   'سفولوه': 10, 'سڤولوه': 10
 };
 
-/**
- * Tukar semua digit Arab-Indic / Jawi (٠-٩) dalam sebarang teks kepada digit Roman (0-9)
- */
 export function convertArabicIndicToRomanDigits(text: string): string {
   if (!text) return '';
   return text.replace(/[٠-٩۰-۹]/g, ch => ARABIC_DIGIT_MAP[ch] || ch);
 }
 
-/**
- * Ekstrak dan selaraskan tarikh kepada format Roman ISO (YYYY-MM-DD)
- * Menyokong tarikh tulisan tangan dalam Jawi / Arab dan Roman
- */
 export function extractStandardizedPaymentDate(text: string): string {
   const normalized = convertArabicIndicToRomanDigits(text);
 
-  // 1. Format DD/MM/YYYY atau DD-MM-YYYY atau DD.MM.YYYY atau DD MM YYYY
+  // 1. Format DD/MM/YYYY atau DD-MM-YYYY
   const dmyMatch = normalized.match(/\b(\d{1,2})[\/\-\.\s]+(\d{1,2})[\/\-\.\s]+(\d{2,4})\b/);
   if (dmyMatch) {
     const d = parseInt(dmyMatch[1], 10);
@@ -93,22 +87,15 @@ export function extractStandardizedPaymentDate(text: string): string {
     return `${y}-${m}-${d}`;
   }
 
-  // Lalai kepada tarikh hari ini
   return new Date().toISOString().split('T')[0];
 }
 
-/**
- * Tukar string nombor Arab-Indic ke integer
- */
 export function parseArabicIndicDigits(str: string): number {
   const converted = convertArabicIndicToRomanDigits(str);
   const parsed = parseInt(converted, 10);
   return isNaN(parsed) ? 0 : parsed;
 }
 
-/**
- * Tukar RGB ke HSL (Hue, Saturation, Lightness)
- */
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255;
   g /= 255;
@@ -138,12 +125,6 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 }
 
-/**
- * Mengesan warna kertas, orientasi saiz (Landscape vs Portrait),
- * dan dakwat merah 5-angka di atas kanan:
- * - Resit Zakat Fitrah: Kertas HIJAU (DW) atau KUNING (CS), format Potret/Slip, kod awalan DW/CS + 6-angka.
- * - Resit Zakat Harta: Kertas PUTIH, saiz MEMANJANG (Landscape), 5-angka MERAH di atas kanan, TIADA kod resit.
- */
 export async function detectPaperColorFromImage(
   imageSource: string | HTMLImageElement
 ): Promise<PaperColorResult> {
@@ -196,7 +177,6 @@ export async function detectPaperColorFromImage(
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // 1. Analisis Warna Badan Kertas (Tengah)
         const startX = Math.floor(width * 0.15);
         const startY = Math.floor(height * 0.25);
         const sampleW = Math.floor(width * 0.7);
@@ -216,26 +196,19 @@ export async function detectPaperColorFromImage(
           const b = data[i + 2];
 
           const [h, s, l] = rgbToHsl(r, g, b);
-          if (l < 25) continue; // Abaikan garisan gelap
+          if (l < 25) continue;
 
           totalSamples++;
 
-          // Kertas HIJAU: Hue ~ 75° hingga 165°
           if (h >= 75 && h <= 165 && g > b) {
             greenVotes++;
-          }
-          // Kertas KUNING: Hue ~ 35° hingga 72° (R dan G tinggi, B rendah)
-          else if (h >= 35 && h <= 72 && (r > b + 20)) {
+          } else if (h >= 35 && h <= 72 && (r > b + 20)) {
             yellowVotes++;
-          }
-          // Kertas PUTIH: Ketepuan rendah (s < 18) dan kecerahan tinggi (l > 60)
-          else if (s < 18 && l > 60) {
+          } else if (s < 18 && l > 60) {
             whiteVotes++;
           }
         }
 
-        // 2. Analisis Nombor Merah di Sudut Atas Kanan (Top-Right)
-        // Zakat Harta mempunyai nombor siri 5-angka berwarna merah di atas kanan
         const trX = Math.floor(width * 0.65);
         const trY = Math.floor(height * 0.02);
         const trW = Math.floor(width * 0.33);
@@ -251,14 +224,12 @@ export async function detectPaperColorFromImage(
           const b = trData[i + 2];
 
           trTotal++;
-          // Warna Merah yang ketara (Red ink)
           if (r > 115 && r > g * 1.35 && r > b * 1.35) {
             redVotes++;
           }
         }
 
         const hasRedTopRightNumber = trTotal > 0 && (redVotes / trTotal) > 0.008;
-
         const greenRatio = totalSamples > 0 ? greenVotes / totalSamples : 0;
         const yellowRatio = totalSamples > 0 ? yellowVotes / totalSamples : 0;
         const whiteRatio = totalSamples > 0 ? whiteVotes / totalSamples : 0;
@@ -285,7 +256,6 @@ export async function detectPaperColorFromImage(
           detectedZakatType = 'HARTA';
         }
 
-        // Jika orientasi jelas landscape (memanjang), sahkan sebagai Zakat Harta
         if (orientation === 'LANDSCAPE') {
           detectedZakatType = 'HARTA';
           if (hasRedTopRightNumber) {
@@ -325,7 +295,7 @@ export async function detectPaperColorFromImage(
           img.src = imageSource;
         }
       }
-    } catch (e) {
+    } catch {
       resolve({ 
         color: 'UNKNOWN', 
         detectedCode: null, 
@@ -340,10 +310,6 @@ export async function detectPaperColorFromImage(
   });
 }
 
-
-/**
- * Bersihkan kesilapan biasa OCR bagi digit angka
- */
 export function cleanDigitString(str: string): string {
   return str
     .replace(/[OoDQ]/g, '0')
@@ -354,17 +320,6 @@ export function cleanDigitString(str: string): string {
     .replace(/\D/g, '');
 }
 
-/**
- * Ekstrak nombor resit dan klasifikasikan jenis zakat:
- * 1. Resit Zakat Harta:
- *    - 5-Angka digit (cth: 46440), warna merah di sebelah atas kanan.
- *    - TIADA sebarang kod resit (tiada awalan DW/CS).
- *    - Saiz memanjang (Landscape) & Kertas Putih (Borang A).
- * 2. Resit Zakat Fitrah:
- *    - 6-Angka digit (cth: 012345).
- *    - Mempunyai kod awalan DW (Beras Wangi / Kertas Hijau) atau CS (Beras Siam / Kertas Kuning).
- *    - Format potret/slip.
- */
 export function extractReceiptCodeAndNumber(
   text: string,
   paperColor?: PaperColorResult,
@@ -376,26 +331,21 @@ export function extractReceiptCodeAndNumber(
   zakatType: 'FITRAH' | 'HARTA';
   detectionReasons: string[];
 } {
-  // Selaraskan sebarang digit Arab-Indic / Jawi kepada Roman terlebih dahulu
   const normalizedText = convertArabicIndicToRomanDigits(text);
   const upper = normalizedText.toUpperCase();
   const reasons: string[] = [];
 
-  // 1. Kenal pasti kata kunci Resit Zakat Harta (Borang A)
   const hartaKeywordsRegex = /(?:borang\s*a|بور[ان]?غ\s*a|resit\s*rasmi\s*zakat|zakat\s*harta|wang\s*simpanan|emas\s*&\s*perak|perniagaan|چيک|nombor\s*cek|no\s*cek|علامة|باپق)/i;
   const hasHartaKeywords = hartaKeywordsRegex.test(normalizedText);
   if (hasHartaKeywords) reasons.push('Mengandungi teks khusus Borang A / Zakat Harta');
 
-  // 1b. Kenal pasti kata kunci Resit Zakat Fitrah (Borang B / Borang J)
   const fitrahKeywordsRegex = /(?:borang\s*[bj]|بور[ان]?غ\s*[bj]|resit\s*rasmi\s*fitrah|زكاة\s*دان\s*فطره|زكاة\s*فطره|zakat\s*dan\s*fitrah)/i;
   const hasFitrahKeywords = fitrahKeywordsRegex.test(normalizedText);
   if (hasFitrahKeywords) reasons.push('Mengandungi teks khusus Borang B/J (Fitrah)');
 
-  // 2. Kenal pasti kod Zakat Fitrah (DW / CS)
   const hasDWorCSInText = /\b(DW|CS|EW)\b/.test(upper) || /(?:DW|CS|EW)\s*[:.-]?\s*\d/i.test(upper);
   const isGreenOrYellowPaper = paperColor?.color === 'GREEN' || paperColor?.color === 'YELLOW';
 
-  // 3. Tentukan jenis zakat (Zakat Harta vs Zakat Fitrah)
   let isHarta = false;
   if (targetTypeHint === 'HARTA') {
     isHarta = true;
@@ -403,7 +353,6 @@ export function extractReceiptCodeAndNumber(
   } else if (targetTypeHint === 'FITRAH') {
     isHarta = false;
   } else {
-    // Pengesanan automatik berdasarkan ciri-ciri fizikal resit dan kata kunci
     if (paperColor?.orientation === 'LANDSCAPE') {
       isHarta = true;
       reasons.push('Saiz resit memanjang (Landscape)');
@@ -420,27 +369,22 @@ export function extractReceiptCodeAndNumber(
     }
   }
 
-  // Jika mengandungi kod DW atau CS secara jelas, pastikan ia Fitrah
   if (hasDWorCSInText || (isGreenOrYellowPaper && !hasHartaKeywords)) {
     if (targetTypeHint !== 'HARTA') {
       isHarta = false;
     }
   }
 
-  // =========================================================================
-  // KES A: RESIT ZAKAT HARTA (5-ANGKA, TIADA SEBARANG KOD RESIT)
-  // =========================================================================
+  // ZAKAT HARTA (5 Digit, tiada kod huruf)
   if (isHarta) {
     let detected5Digits = '';
 
-    // Pola H1: Perkataan 'بيلاغن' atau 'bilangan' diikuti 5-digit angka (cth: بيلاغن : 46440)
     const bilMatch = normalizedText.match(/(?:بيلاغن|bilangan|bil|no|or)\s*[:.-]?\s*([0-9OISB]{5})\b/i);
     if (bilMatch) {
       detected5Digits = cleanDigitString(bilMatch[1]);
-      reasons.push(`Nombor 5-angka dikesan selepas perkataan Bilangan: ${detected5Digits}`);
+      reasons.push(`Nombor 5-angka dikesan: ${detected5Digits}`);
     }
 
-    // Pola H2: Mana-mana padanan 5-digit nombor dalam 4 baris teratas (kebiasaannya nombor siri atas kanan)
     if (!detected5Digits || detected5Digits.length !== 5) {
       const lines = normalizedText.split('\n').slice(0, 5);
       for (const line of lines) {
@@ -449,14 +393,13 @@ export function extractReceiptCodeAndNumber(
           const cleaned = cleanDigitString(top5Match[1]);
           if (cleaned.length === 5) {
             detected5Digits = cleaned;
-            reasons.push(`Nombor 5-angka dikesan di bahagian atas resit: ${detected5Digits}`);
+            reasons.push(`Nombor 5-angka di bahagian atas resit: ${detected5Digits}`);
             break;
           }
         }
       }
     }
 
-    // Pola H3: Mana-mana blok 5-digit tepat dalam teks
     if (!detected5Digits || detected5Digits.length !== 5) {
       const all5 = normalizedText.match(/\b\d{5}\b/g);
       if (all5 && all5.length > 0) {
@@ -464,13 +407,12 @@ export function extractReceiptCodeAndNumber(
       }
     }
 
-    // Fallback selamat jika OCR kabur
     if (!detected5Digits || detected5Digits.length !== 5) {
       detected5Digits = String(Math.floor(10000 + Math.random() * 89999));
     }
 
     return {
-      fullNumber: detected5Digits, // SAKTI: Tiada kod huruf awalan!
+      fullNumber: detected5Digits,
       code: '',
       digits: detected5Digits,
       zakatType: 'HARTA',
@@ -478,9 +420,7 @@ export function extractReceiptCodeAndNumber(
     };
   }
 
-  // =========================================================================
-  // KES B: RESIT ZAKAT FITRAH (6-ANGKA DENGAN KOD DW / CS)
-  // =========================================================================
+  // ZAKAT FITRAH (6 Digit dengan kod DW / CS)
   let detectedCode: 'DW' | 'CS' | '' = '';
   if (/\bDW\b/.test(upper) || /DW\s*[:.-]?\s*\d/.test(upper) || upper.includes('EW')) {
     detectedCode = 'DW';
@@ -495,7 +435,6 @@ export function extractReceiptCodeAndNumber(
 
   let detected6Digits = '';
 
-  // Pola F1: Baris yang mengandungi DW atau CS diikuti nombor 5-7 digit
   const codePrefixMatch = normalizedText.match(/(?:DW|CS|EW)\s*[:.-]?\s*([0-9OISB]{5,7})/i);
   if (codePrefixMatch) {
     const cleaned = cleanDigitString(codePrefixMatch[1]);
@@ -508,7 +447,6 @@ export function extractReceiptCodeAndNumber(
     }
   }
 
-  // Pola F2: Teks nombor yang bersebelahan perkataan 'بيلاغن' (Bilangan)
   if (!detected6Digits) {
     const lines = normalizedText.split('\n');
     for (const line of lines) {
@@ -525,7 +463,6 @@ export function extractReceiptCodeAndNumber(
     }
   }
 
-  // Pola F3: Mana-mana blok 6-digit dalam teks
   if (!detected6Digits) {
     const allMatches = normalizedText.match(/\b\d{6}\b/g);
     if (allMatches && allMatches.length > 0) {
@@ -534,7 +471,6 @@ export function extractReceiptCodeAndNumber(
     }
   }
 
-  // Pola F4: Cari digit 6-karakter yang boleh dinormalkan
   if (!detected6Digits) {
     const rawMatches = normalizedText.match(/\b[0-9OISB]{6}\b/gi);
     if (rawMatches && rawMatches.length > 0) {
@@ -545,7 +481,6 @@ export function extractReceiptCodeAndNumber(
     }
   }
 
-  // Fallback cadangan 6-digit
   if (!detected6Digits) {
     detected6Digits = '0' + Math.floor(10000 + Math.random() * 90000);
   }
@@ -560,9 +495,6 @@ export function extractReceiptCodeAndNumber(
   };
 }
 
-/**
- * Ekstrak butiran khusus daripada Resit Zakat Harta (Borang A)
- */
 export function extractZakatHartaDetails(text: string): {
   payerName: string;
   payerIcNumber: string;
@@ -579,7 +511,6 @@ export function extractZakatHartaDetails(text: string): {
   let bankName = '';
   let chequeNumber = '';
 
-  // 1. Ekstrak No Kad Pintar
   const icMatch = normalized.match(/\b(\d{2}[-\s]?\d{6})\b/);
   if (icMatch) {
     payerIcNumber = icMatch[1].replace(/\s+/g, '-');
@@ -588,7 +519,6 @@ export function extractZakatHartaDetails(text: string): {
     }
   }
 
-  // 2. Ekstrak Nama
   const nameLineMatch = text.match(/(?:نام|nama|diterima\s*drpd|diterima\s*daripada)[\s\:\._]*([A-Za-z\s@]{3,40})/i);
   if (nameLineMatch && nameLineMatch[1]) {
     const raw = nameLineMatch[1].trim();
@@ -597,22 +527,18 @@ export function extractZakatHartaDetails(text: string): {
     }
   }
 
-  // 3. Ekstrak Jumlah Bayaran ($ dan sen). Column layout usually puts them side by side or separated by space/pipe
-  // For example: "231 73" or "231 | 73"
   const amountMatch = normalized.match(/(?:\$|B\$|banyak|jumlah)[\s\:\._]*([0-9]+)[\s\|\.,]*([0-9]{2})?/i);
   if (amountMatch && amountMatch[1]) {
     const dollars = amountMatch[1];
     const cents = amountMatch[2] || '00';
     amount = `${dollars}.${cents}`;
   } else {
-    // Try catching standalone numbers in the left column region if possible, e.g. "231 73"
     const genericAmountMatch = normalized.match(/\b([0-9]+)\s+([0-9]{2})\b/);
     if (genericAmountMatch) {
-       amount = `${genericAmountMatch[1]}.${genericAmountMatch[2]}`;
+      amount = `${genericAmountMatch[1]}.${genericAmountMatch[2]}`;
     }
   }
 
-  // 4. Ekstrak Kategori Zakat Harta (Rumi or Jawi)
   if (/emas|perak|امس|ڤيرق/i.test(text)) {
     zakatSubtype = 'Emas & Perak';
   } else if (/perniagaan|kedai|syarikat|ڤرنياݢاءن/i.test(text)) {
@@ -625,7 +551,6 @@ export function extractZakatHartaDetails(text: string): {
     zakatSubtype = 'Wang Simpanan';
   }
 
-  // 5. Ekstrak Bank & Cek
   const bankMatch = text.match(/(?:bank|بڠك)[\s\:\._]*([A-Za-z\s]{3,20})/i);
   if (bankMatch && bankMatch[1]) {
     bankName = bankMatch[1].trim();
@@ -646,14 +571,9 @@ export function extractZakatHartaDetails(text: string): {
   };
 }
 
-
-/**
- * Ekstrak Jumlah Muzakki (Roman, Arab-Indic, atau Perkataan Jawi)
- */
 export function extractMuzakkiInfo(text: string): { totalMuzakki: number; dependents: number; source: string } {
   const normalized = convertArabicIndicToRomanDigits(text);
 
-  // 1. Periksa keyword tanggungan
   const tanggunganMatch = normalized.match(/(?:tanggungan|تڠݢوڠن|تڠڬوڠن)[\s\:\._]*(\d{1,2})/i);
   if (tanggunganMatch && tanggunganMatch[1]) {
     const dep = parseInt(tanggunganMatch[1], 10);
@@ -666,7 +586,6 @@ export function extractMuzakkiInfo(text: string): { totalMuzakki: number; depend
     }
   }
 
-  // 2. Periksa perkataan Jawi/Melayu (cth: 'دتريما ساتو فطره' / 'دتريما دوا فطره' / 'دوا')
   for (const [word, val] of Object.entries(JAWI_WORD_MAP)) {
     if (text.includes(word)) {
       return { 
@@ -677,7 +596,6 @@ export function extractMuzakkiInfo(text: string): { totalMuzakki: number; depend
     }
   }
 
-  // 3. Periksa nombor selepas perkataan 'جمله مزكي' atau 'muzakki'
   const muzakkiRomanMatch = normalized.match(/(?:جمله مزكي|مزكي|muzakki|jumlah)[\s\:\._]*(\d{1,2})/i);
   if (muzakkiRomanMatch && muzakkiRomanMatch[1]) {
     const num = parseInt(muzakkiRomanMatch[1], 10);
@@ -690,18 +608,13 @@ export function extractMuzakkiInfo(text: string): { totalMuzakki: number; depend
     }
   }
 
-  // 5. Lalai kepada 1 pembayar (tiada tanggungan)
   return { totalMuzakki: 1, dependents: 0, source: 'Lalai (1 Orang Muzakki)' };
 }
 
-/**
- * Memampatkan imej resit kepada saiz ultra-ringan (~15KB - 20KB)
- * untuk disimpan ke dalam pangkalan data Supabase tanpa membebankan sambungan TCP
- */
 export async function compressReceiptImage(
   base64Image: string,
-  maxDimension = 520,
-  quality = 0.58
+  maxDimension = 800,
+  quality = 0.75
 ): Promise<string> {
   return new Promise((resolve) => {
     try {
@@ -748,4 +661,3 @@ export async function compressReceiptImage(
     }
   });
 }
-

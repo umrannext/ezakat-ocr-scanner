@@ -6,20 +6,13 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "vars": {
-    "SHAREPOINT_SITE_ID": "jpibrunei.sharepoint.com,1fa0ce81-c3af-4f98-b753-15fa5834c4e7,1ea40027-da4f-4631-9baf-8ee311adc519",
-    "SHAREPOINT_DRIVE_ID": "b!gc6gH6_DmE-3UxX6WDTE5ycApB5P2jFGm6-O4xGtxRl6_McPzCoeS7A2m-3joIjh"
-  },
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "38fc8e5584b94006a34b07549d2287b9",
-      "localConnectionString": "postgresql://postgres.nudegfroiysxvmoyqaqh:MisiJuzw%40b2026@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
-    }
-  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "vars": {
+    "SHAREPOINT_SITE_ID": "jpibrunei.sharepoint.com,1fa0ce81-c3af-4f98-b753-15fa5834c4e7,1ea40027-da4f-4631-9baf-8ee311adc519",
+    "SHAREPOINT_DRIVE_ID": "b!gc6gH6_DmE-3UxX6WDTE5ycApB5P2jFGm6-O4xGtxRl6_McPzCoeS7A2m-3joIjh"
   },
   "observability": {
     "enabled": true
