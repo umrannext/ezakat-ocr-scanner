@@ -2,6 +2,9 @@
   "name": "zakat-ocr-scanner-v2",
   "version": "2.0.0",
   "private": true,
+  "bin": {
+    "prisma": "./bin/prisma.js"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
